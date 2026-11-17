@@ -1,4 +1,5 @@
 import { api } from "@/core/api/api";
+import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { useEffect, useMemo, useState } from "react";
 
 interface AdminUserRow {
@@ -36,7 +37,7 @@ function Users() {
   // Cargar usuarios reales si hay token
   useEffect(() => {
     let mounted = true;
-    const token = localStorage.getItem("access_token");
+    const token = useAuthStore.getState().accessToken;
     if (!token) {
       setNeedsToken(true);
       return;
@@ -97,9 +98,7 @@ function Users() {
 
       {needsToken && (
         <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-3">
-          Requiere token para cargar usuarios. Guarda un JWT en localStorage:
-          <br />
-          <code>localStorage.setItem('access_token', 'TU_JWT')</code>
+          Inicia sesión con una cuenta administradora para consultar los usuarios.
         </div>
       )}
       {loadError && (

@@ -1,4 +1,5 @@
 import { api } from "@/core/api/api";
+import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { useEffect, useMemo, useState } from "react";
 
 interface AdminProduct {
@@ -67,7 +68,7 @@ function Products() {
     let mounted = true;
     (async () => {
       try {
-        const res = await api.get("/api/v1/products");
+        const res = await api.get("products");
         // Estructura esperada: { success, message, data: ProductResponse[] }
         const list = (res.data?.data || []) as Array<{
           id: number;
@@ -170,7 +171,7 @@ function Products() {
     // Obtener detalles para cargar ingredientes
     (async () => {
       try {
-        const res = await api.get(`/api/v1/products/${p.id}`);
+        const res = await api.get(`products/${p.id}`);
         const detail = res.data?.data as
           | {
               ingredients?: ProductIngredientApiItem[];
@@ -222,7 +223,7 @@ function Products() {
     const v = validate(form);
     setErrors(v);
     if (Object.keys(v).length) return;
-    const token = localStorage.getItem("access_token");
+    const token = useAuthStore.getState().accessToken;
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
     // Filtrar ingredientes inválidos (ids o cantidades vacías/no válidas)
     const cleanedIngredients = (form.ingredients || [])
@@ -241,7 +242,7 @@ function Products() {
           ingredients: cleanedIngredients,
         };
         await api.put(
-          `/api/v1/products/${form.id}`,
+          `products/${form.id}`,
           payload,
           headers ? { headers } : undefined
         );
@@ -254,7 +255,7 @@ function Products() {
           ingredients: cleanedIngredients,
         };
         const res = await api.post(
-          `/api/v1/products`,
+          `products`,
           payload,
           headers ? { headers } : undefined
         );
@@ -273,7 +274,7 @@ function Products() {
         }
       }
       // Refrescar lista
-      const ref = await api.get("/api/v1/products");
+      const ref = await api.get("products");
       const list = (ref.data?.data || []) as Array<{
         id: number;
         name: string;
@@ -297,11 +298,11 @@ function Products() {
   }
 
   async function remove(id: string) {
-    const token = localStorage.getItem("access_token");
+    const token = useAuthStore.getState().accessToken;
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
     try {
       await api.delete(
-        `/api/v1/products/${id}`,
+        `products/${id}`,
         headers ? { headers } : undefined
       );
       setProducts((prev) => prev.filter((p) => p.id !== id));
@@ -424,7 +425,7 @@ function Products() {
             <h2 className="text-xl font-semibold text-red-700">
               {editing ? "Editar producto" : "Nuevo producto"}
             </h2>
-            {!localStorage.getItem("access_token") && (
+            {!useAuthStore.getState().accessToken && (
               <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
                 Requiere token ADMIN para guardar (POST/PUT/DELETE). Solo
                 lectura sin token.

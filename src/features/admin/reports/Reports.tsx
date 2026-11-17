@@ -1,4 +1,5 @@
 import { api } from "@/core/api/api";
+import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { useEffect, useMemo, useState } from "react";
 
 function Reports() {
@@ -12,7 +13,7 @@ function Reports() {
     let mounted = true;
     (async () => {
       try {
-        const token = localStorage.getItem("access_token");
+        const token = useAuthStore.getState().accessToken;
         const res = await api.get(
           "orders",
           token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
