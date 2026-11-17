@@ -1,4 +1,5 @@
 import { api } from "@/core/api/api";
+import { useAuthStore } from "@/core/stores/auth/auth.store";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -16,7 +17,7 @@ function Dashboard() {
     let mounted = true;
     (async () => {
       try {
-        const res = await api.get("/api/v1/products");
+        const res = await api.get("products");
         const list = (res.data?.data || []) as unknown[];
         if (mounted) setProductCount(Array.isArray(list) ? list.length : null);
       } catch {
@@ -33,9 +34,9 @@ function Dashboard() {
     let mounted = true;
     (async () => {
       try {
-        const token = localStorage.getItem("access_token");
+        const token = useAuthStore.getState().accessToken;
         const res = await api.get(
-          "/api/v1/orders",
+          "orders",
           token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
         );
         const orders = (res.data?.data || []) as Array<{
@@ -73,11 +74,11 @@ function Dashboard() {
   // Obtener conteo de usuarios si hay token
   useEffect(() => {
     let mounted = true;
-    const token = localStorage.getItem("access_token");
+    const token = useAuthStore.getState().accessToken;
     if (!token) return;
     (async () => {
       try {
-        const res = await api.get("/api/v1/users/admin", {
+        const res = await api.get("users/admin", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const list = (res.data?.data || []) as unknown[];
