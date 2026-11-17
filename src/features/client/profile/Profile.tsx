@@ -1,5 +1,9 @@
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { useState } from "react";
+import axios from "axios";
+import { api } from "@/core/api/api";
+import type { ApiResponse } from "@/core/types/base/api-response";
+import type { UserResponse } from "@/core/types/user/user.model";
 import { useForm } from "react-hook-form";
 import { toast } from "react-toastify";
 
@@ -13,7 +17,7 @@ type ProfileFormData = {
 };
 
 export default function Profile() {
-  const { user } = useAuthStore();
+  const { user, accessToken, sessionId, setAuth } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
 
   const {
@@ -31,12 +35,27 @@ export default function Profile() {
   });
 
   const onSubmit = async (data: ProfileFormData) => {
-    console.log("Actualizando datos:", data);
-
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    toast.success("Perfil actualizado correctamente");
-    setIsEditing(false);
+    try {
+      const result = await api.put<ApiResponse<{ user: UserResponse; token: string | null }>>(
+        "users/update-profile", data
+      );
+      if (!result.data.success || !result.data.data?.user) {
+        throw new Error(result.data.message || "No se pudo actualizar el perfil");
+      }
+      const updated = result.data.data;
+      setAuth({
+        user: updated.user,
+        accessToken: updated.token || accessToken || "",
+        sessionId: sessionId || "",
+      });
+      toast.success("Perfil actualizado correctamente");
+      setIsEditing(false);
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? (error.response?.data?.message || "No se pudo actualizar el perfil")
+        : (error instanceof Error ? error.message : "No se pudo actualizar el perfil");
+      toast.error(message);
+    }
   };
 
   if (!user) return <div className="text-white p-10">Cargando perfil...</div>;
