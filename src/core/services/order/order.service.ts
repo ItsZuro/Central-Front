@@ -10,6 +10,18 @@ import type {
 } from "@/core/types/order/order.model"; 
 
 export const orderService = {
+  async getAssignedDeliveries(): Promise<ApiResponse<OrderResponse[]>> {
+    const res = await api.get<ApiResponse<OrderResponse[]>>("/orders/delivery/assigned-me");
+    return res.data;
+  },
+
+  async updateAssignedDeliveryStatus(
+    id: number, newStatusCode: "OUT_FOR_DELIVERY" | "DELIVERED"
+  ): Promise<ApiResponse<OrderResponse>> {
+    const res = await api.put<ApiResponse<OrderResponse>>(`/orders/${id}/delivery/status`, { newStatusCode });
+    return res.data;
+  },
+
   async getAllOrders(
     lang = "es",
     type?: string
