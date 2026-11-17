@@ -15,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 type ActiveSection = "dashboard" | "orders" | "tables";
 
@@ -136,6 +137,7 @@ export default function WaiterApp() {
               })}
             </nav>
 
+            <div className="px-4 pb-3"><Link to="/driver" className="block rounded border border-border p-3 text-sm font-medium text-foreground hover:bg-muted">Ver repartos asignados</Link></div>
             {/* Footer Actions */}
             <div className="p-4 border-t border-border space-y-2">
               <Button
@@ -171,6 +173,7 @@ export default function WaiterApp() {
       </div>
 
       {/* Mobile Bottom Navigation */}
+      <div className="lg:hidden px-4 py-3 bg-card"><Link to="/driver" className="inline-flex rounded border border-border p-3 text-sm font-semibold text-foreground">Ver repartos asignados</Link></div>
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border">
         <div className="grid grid-cols-3">
           {navigationItems.map((item) => {
