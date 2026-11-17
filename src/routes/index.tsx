@@ -21,6 +21,7 @@ import Profile from "@/features/client/profile/Profile";
 import Reservations from "@/features/client/reservations/Reservations";
 import ProductsSupplier from "@/features/supplier/products/Products";
 import PageWaiter from "@/features/waiter/pageWaiter";
+import AssignedDeliveries from "@/features/driver/AssignedDeliveries";
 import { Route, Routes } from "react-router-dom";
 import PrivateRoute from "./PrivateRoute";
 
@@ -130,6 +131,11 @@ export default function AppRoutes() {
           path="/supplier/products"
           element={<ProductsSupplier />}
         />
+      </Route>
+
+      {/* Repartos: se utiliza el rol de personal WAITER existente. */}
+      <Route element={<PrivateRoute allowedRoles={["ROLE_WAITER"]} />}>
+        <Route path="/driver" element={<AssignedDeliveries />} />
       </Route>
 
       {/* WAITER */}
