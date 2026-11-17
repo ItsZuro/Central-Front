@@ -1,4 +1,5 @@
 import { useAuthStore } from "@/core/stores/auth/auth.store";
+import { logoutFromServer } from "@/core/services/auth/logout";
 import type { UserResponse } from "@/core/types/user/user.model";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -201,7 +202,7 @@ const UserDropdown = ({
 };
 
 export default function PublicHeader() {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -270,7 +271,7 @@ export default function PublicHeader() {
                 {isMenuOpen && (
                   <UserDropdown
                     user={user}
-                    logout={logout}
+                    logout={() => { void logoutFromServer(); }}
                     closeMenu={() => setIsMenuOpen(false)}
                   />
                 )}
@@ -382,7 +383,7 @@ export default function PublicHeader() {
                     </Link>
                   )}
                   <button
-                    onClick={logout}
+                    onClick={() => { void logoutFromServer(); }}
                     className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-red-400 hover:text-red-300 hover:bg-neutral-800"
                   >
                     Cerrar Sesión

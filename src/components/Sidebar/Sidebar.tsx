@@ -1,4 +1,5 @@
 import { useAuthStore } from "@/core/stores/auth/auth.store";
+import { logoutFromServer } from "@/core/services/auth/logout";
 import { NavLink, useNavigate } from "react-router-dom";
 import Button from "../ui/Button";
 
@@ -9,11 +10,10 @@ function Sidebar() {
     }`;
 
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
 
   const handleLogout = () => {
-    logout();
-    navigate("/auth/login", { replace: true });
+    void logoutFromServer().then(() => navigate("/auth/login", { replace: true }));
   };
 
   return (
