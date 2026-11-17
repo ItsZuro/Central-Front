@@ -1,6 +1,9 @@
 import type { CartItemDraft } from "@/core/stores/cart/cart.store";
 import type { ProductResponse } from "@/core/types/products/products.model";
-import { Minus, Plus, X } from "lucide-react";
+import { Minus, Plus, X, Star } from "lucide-react";
+import { api } from "@/core/api/api";
+import { useAuthStore } from "@/core/stores/auth/auth.store";
+import type { ApiResponse } from "@/core/types/base/api-response";
 import { useEffect, useState } from "react";
 
 interface ProductDrawerProps {
@@ -19,6 +22,42 @@ export default function ProductDrawer({
   const [selectedExtraIds, setSelectedExtraIds] = useState<number[]>([]);
   const [notes, setNotes] = useState<string>("");
   const [isVisible, setIsVisible] = useState(false);
+  const user = useAuthStore((state) => state.user);
+  const isClient = Boolean(user?.roles?.includes("ROLE_CLIENT"));
+  const [reviews, setReviews] = useState<Array<{ id: number; customerName: string; comment: string; rating: number }>>([]);
+  const [reviewError, setReviewError] = useState("");
+  const [reviewText, setReviewText] = useState("");
+  const [rating, setRating] = useState(5);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewRefresh, setReviewRefresh] = useState(0);
+  useEffect(() => {
+    if (!isOpen || !dish) return;
+    let active = true;
+    api.get<ApiResponse<typeof reviews>>(`/reviews/product/${dish.id}`)
+      .then(({ data }) => { if (active) setReviews(data.data || []); })
+      .catch(() => { if (active) setReviewError("No se pudieron cargar las reseñas."); });
+    return () => { active = false; };
+  }, [dish, isOpen, reviewRefresh]);
+
+  async function submitReview() {
+    if (!dish || !isClient) return;
+    setSubmittingReview(true);
+    setReviewError("");
+    try {
+      await api.post("/reviews", {
+        productId: dish.id,
+        rating,
+        comment: reviewText.trim(),
+      });
+      setReviewText("");
+      setReviewRefresh((value) => value + 1);
+    } catch {
+      setReviewError("No se pudo enviar la reseña. Comprueba si ya calificaste el producto.");
+    } finally {
+      setSubmittingReview(false);
+    }
+  }
+
 
   useEffect(() => {
     if (isOpen) {
@@ -202,6 +241,35 @@ export default function ProductDrawer({
               </div>
             </div>
           )}
+
+          <section className="rounded-xl border border-neutral-700 bg-neutral-800 p-4 space-y-4">
+            <h3 className="font-semibold text-white flex items-center gap-2"><Star size={18} /> Reseñas del producto</h3>
+            {reviews.length === 0 && <p className="text-sm text-neutral-400">Todavía no hay reseñas.</p>}
+            {reviews.map((review) => (
+              <div key={review.id} className="border-t border-neutral-700 pt-3 text-sm">
+                <p className="font-medium text-white">{review.customerName || "Cliente"} · {"★".repeat(review.rating)}</p>
+                {review.comment && <p className="mt-1 text-neutral-300 whitespace-pre-wrap">{review.comment}</p>}
+              </div>
+            ))}
+            {isClient && (
+              <div className="border-t border-neutral-700 pt-3 space-y-2">
+                <label className="block text-sm text-neutral-300">Tu calificación
+                  <select aria-label="Calificación" className="mt-1 w-full rounded bg-neutral-900 p-2 text-white" value={rating}
+                    onChange={(event) => setRating(Number(event.target.value))}>
+                    {[5,4,3,2,1].map((value) => <option value={value} key={value}>{value} estrella(s)</option>)}
+                  </select>
+                </label>
+                <textarea aria-label="Comentario del producto" maxLength={2000} value={reviewText}
+                  onChange={(event) => setReviewText(event.target.value)}
+                  placeholder="Comparte tu experiencia" className="w-full rounded bg-neutral-900 p-3 text-white" />
+                <button type="button" disabled={submittingReview} onClick={() => void submitReview()}
+                  className="rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                  {submittingReview ? "Enviando..." : "Publicar reseña"}
+                </button>
+              </div>
+            )}
+            {reviewError && <p role="alert" className="text-sm text-red-400">{reviewError}</p>}
+          </section>
 
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-3 uppercase tracking-wide">
