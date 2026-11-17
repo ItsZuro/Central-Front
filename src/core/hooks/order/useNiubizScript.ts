@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 const NIUBIZ_SCRIPT_URL =
-  "https://static-content-qas.vnforapps.com/v2/js/checkout.js";
+  "https://static-content-qas.vnforapps.com/v2/js/checkout.js?qa=true";
 
 export const useNiubizScript = () => {
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
