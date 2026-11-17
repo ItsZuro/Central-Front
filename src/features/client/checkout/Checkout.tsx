@@ -53,7 +53,9 @@ export default function CheckoutPage() {
 
   // Cálculos de Totales
   const subtotal = getTotalPrice();
-  const deliveryFee = 5.0;
+  // El backend aún no incorpora una tarifa de envío al total de la orden.
+  // No mostrar ni cobrar una tarifa ficticia hasta implementar cotización del servidor.
+  const deliveryFee = 0;
   const total = subtotal + deliveryFee;
   const isLoading = isCreatingOrder || isProcessingPayment;
 
@@ -158,7 +160,7 @@ export default function CheckoutPage() {
           if (paymentMethod === "card") {
             startNiubizFlow(orderId);
           } else {
-            finishSuccess();
+            finishSuccess(orderId);
           }
         },
         onError: (error) => {
@@ -187,7 +189,8 @@ export default function CheckoutPage() {
       // Usamos el MISMO nombre que en PaymentValidate: "pending_payment_metadata"
       const paymentMetadata = {
         purchaseNumber: purchaseNumber,
-        amount: total,
+        amount: response.data.amount,
+        orderId,
       };
       localStorage.setItem(
         "pending_payment_metadata",
@@ -200,7 +203,7 @@ export default function CheckoutPage() {
         channel: "web",
         merchantid: merchantId,
         purchasenumber: purchaseNumber,
-        amount: Number(total.toFixed(2)),
+        amount: Number(response.data.amount),
         expirationminutes: "5",
         timeouturl: window.location.origin + "/menu",
         merchantlogo:
@@ -233,10 +236,13 @@ export default function CheckoutPage() {
   };
 
 
-  const finishSuccess = () => {
+  const finishSuccess = (orderId: number) => {
     setIsProcessingPayment(false);
     clearCart();
-    navigate("/payment/success");
+    navigate("/payment/success", {
+      state: { orderId, paymentStatus: "PENDING" },
+      replace: true,
+    });
   };
 
   // --- RENDERIZADO ---
