@@ -1,291 +1,242 @@
-import { useState } from "react";
-import {
-  FaCalendarAlt,
-  FaClock,
-  FaUsers,
-  FaUser,
-  FaEnvelope,
-  FaPhone,
-  FaCheckCircle,
-} from "react-icons/fa";
+import { useEffect, useMemo, useState } from "react";
+import axios from "axios";
+import { Link } from "react-router-dom";
+import { api } from "@/core/api/api";
+import { useAuthStore } from "@/core/stores/auth/auth.store";
+import type { ApiResponse } from "@/core/types/base/api-response";
 
-function Reservations() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    date: "",
-    time: "",
-    guests: 1,
-    tableType: "interior",
-    specialRequests: "",
-  });
+type Status = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+type AvailableTable = { id: number; name: string; capacity: number; availableTimes: string[] };
+type Reservation = {
+  id: number; tableNumber: string; reservationDate: string; reservationTime: string;
+  numberOfPeople: number; status: Status;
+};
+type Page<T> = { content: T[] };
+const statusNames: Record<Status, string> = {
+  PENDING: "Pendiente de confirmación",
+  CONFIRMED: "Confirmada",
+  CANCELLED: "Cancelada",
+  COMPLETED: "Completada",
+};
+function limaDateTime(extraMinutes = 0) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Lima", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(Date.now() + extraMinutes * 60_000));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || "00";
+  return { date: [get("year"), get("month"), get("day")].join("-"), time: get("hour") + ":" + get("minute") };
+}
+function getError(e: unknown) {
+  if (axios.isAxiosError(e)) {
+    const response = e.response?.data as { message?: string } | undefined;
+    if (response?.message) return response.message;
+    if (e.response?.status === 401) return "Inicia sesión nuevamente.";
+    if (e.response?.status === 403) return "No tienes permisos para realizar esta operación.";
+  }
+  return "No se pudo completar la solicitud. Comprueba la conexión con el servidor.";
+}
 
-  const [submitted, setSubmitted] = useState(false);
+export default function Reservations() {
+  const user = useAuthStore((s) => s.user);
+  const isClient = Boolean(user?.roles?.includes("ROLE_CLIENT"));
+  const [date, setDate] = useState("");
+  const [guests, setGuests] = useState(2);
+  const [time, setTime] = useState("");
+  const [tableId, setTableId] = useState<number | null>(null);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [availability, setAvailability] = useState<AvailableTable[]>([]);
+  const [bookings, setBookings] = useState<Reservation[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [cancelling, setCancelling] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const [created, setCreated] = useState<Reservation | null>(null);
+  const [reload, setReload] = useState(0);
+  const today = limaDateTime().date;
+  const threshold = limaDateTime(16);
+  const latestSlot = threshold.date + "T" + threshold.time;
 
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
-  ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  useEffect(() => {
+    if (user) {
+      setName((old) => old || user.fullName || "");
+      setPhone((old) => old || user.phone || "");
+    }
+  }, [user]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    setTime("");
+    setTableId(null);
+    setAvailability([]);
+    setError("");
+    if (!date || date < today) return;
+    let active = true;
+    setLoading(true);
+    api.get<ApiResponse<AvailableTable[]>>("tables/available-times", {
+      params: { numberOfPeople: guests, date, filterByCapacity: true },
+    }).then(({ data }) => {
+      if (active) setAvailability(data.data || []);
+    }).catch((e: unknown) => {
+      if (active) setError(getError(e));
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+    return () => { active = false; };
+  }, [date, guests, reload, today]);
+
+  useEffect(() => {
+    if (!isClient) {
+      setBookings([]);
+      return;
+    }
+    let active = true;
+    api.get<ApiResponse<Page<Reservation>>>("reservations/me", {
+      params: { page: 0, size: 20 },
+    }).then(({ data }) => {
+      if (active) setBookings(data.data?.content || []);
+    }).catch(() => {
+      if (active) setBookings([]);
+    });
+    return () => { active = false; };
+  }, [isClient, reload]);
+
+  const slots = useMemo(() =>
+    Array.from(new Set(availability.flatMap((t) => t.availableTimes || [])))
+      .filter((v) => date + "T" + v >= latestSlot).sort(),
+    [availability, date, latestSlot]
+  );
+  const tables = useMemo(() =>
+    availability.filter((t) => t.availableTimes?.includes(time)),
+    [availability, time]
+  );
+
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 5000);
-  };
+    setError("");
+    setCreated(null);
+    if (!isClient) { setError("Necesitas una cuenta de cliente."); return; }
+    if (!date || !time || !tableId || !tables.some((t) => t.id === tableId)) {
+      setError("Elige una fecha, un horario y una mesa disponibles."); return;
+    }
+    if (!name.trim() || phone.trim().length < 7 || phone.trim().length > 15) {
+      setError("Comprueba el nombre y el teléfono (7 a 15 caracteres)."); return;
+    }
+    setSending(true);
+    try {
+      const response = await api.post<Reservation>("reservations/me", {
+        tableId, contactName: name.trim(), contactPhone: phone.trim(),
+        reservationDate: date, reservationTime: time + ":00", numberOfPeople: guests,
+      });
+      setCreated(response.data);
+      setReload((n) => n + 1);
+    } catch (cause) {
+      setError(getError(cause));
+      setReload((n) => n + 1);
+    } finally {
+      setSending(false);
+    }
+  }
 
-  const availableTimes = [
-    "12:00",
-    "12:30",
-    "13:00",
-    "13:30",
-    "14:00",
-    "14:30",
-    "19:00",
-    "19:30",
-    "20:00",
-    "20:30",
-    "21:00",
-    "21:30",
-    "22:00",
-  ];
+  async function cancel(id: number) {
+    setError("");
+    setCancelling(id);
+    try {
+      await api.patch("reservations/me/" + id + "/cancel");
+      setReload((n) => n + 1);
+    } catch (cause) {
+      setError(getError(cause));
+    } finally {
+      setCancelling(null);
+    }
+  }
 
-  const tableTypes = [
-    {
-      value: "interior",
-      label: "Mesa Interior",
-      description: "Ambiente acogedor y climatizado",
-    },
-    { value: "terraza", label: "Terraza", description: "Vista al aire libre" },
-    {
-      value: "privado",
-      label: "Salón Privado",
-      description: "Para eventos especiales (6+ personas)",
-    },
-  ];
-
+  const inputClass = "w-full rounded-lg border border-neutral-600 bg-neutral-800 p-3 text-white";
   return (
-    <section className="py-28 px-6 bg-gradient-to-b from-[#202020] via-[#1f1515] to-[#1a1a1a] min-h-screen relative text-white">
-      <h2 className="text-5xl font-bold text-center mb-6 drop-shadow-lg">
-        Reserva tu mesa
-      </h2>
-      <p className="text-center text-gray-300 max-w-3xl mx-auto mb-12 text-lg">
-        Completa el formulario y asegura tu mesa en nuestro restaurante.
-        ¡Te esperamos!
-      </p>
-
-      {/* Notificación de reserva exitosa */}
-      {submitted && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-6 py-4 rounded-xl shadow-2xl z-50 flex items-center gap-3">
-          <FaCheckCircle className="text-2xl" />
-          <div>
-            <p className="font-bold">¡Reserva confirmada!</p>
-            <p className="text-sm">
-              Te contactaremos pronto para confirmar los detalles.
-            </p>
+    <section className="min-h-screen bg-neutral-950 px-4 py-28 text-white">
+      <div className="mx-auto max-w-4xl">
+        <h1 className="mb-3 text-center text-4xl font-bold">Reserva tu mesa</h1>
+        <p className="mb-9 text-center text-neutral-300">
+          Elige un horario disponible. Las solicitudes quedan pendientes hasta que el restaurante las confirme.
+        </p>
+        {!isClient && (
+          <div className="mb-6 rounded-lg border border-yellow-600 bg-yellow-950/30 p-5" role="status">
+            Para solicitar una reserva necesitas iniciar sesión con una cuenta de cliente.{" "}
+            <Link className="underline" to="/auth/login">Iniciar sesión</Link> ·{" "}
+            <Link className="underline" to="/auth/signup">Crear cuenta</Link>
           </div>
-        </div>
-      )}
-
-      <div className="max-w-5xl mx-auto">
-        {/* Información del restaurante */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-[#2b2b2b] rounded-2xl shadow-xl p-6 text-center border border-gray-700">
-            <FaClock className="text-3xl text-red-500 mx-auto mb-4" />
-            <h3 className="text-xl font-bold mb-2">Horarios</h3>
-            <p className="text-gray-300">Lunes a Domingo</p>
-            <p className="text-gray-300">12:00 PM - 11:00 PM</p>
-          </div>
-          <div className="bg-[#2b2b2b] rounded-2xl shadow-xl p-6 text-center border border-gray-700">
-            <FaUsers className="text-3xl text-red-500 mx-auto mb-4" />
-            <h3 className="text-xl font-bold mb-2">Capacidad</h3>
-            <p className="text-gray-300">Hasta 10 personas</p>
-            <p className="text-gray-300">por reserva</p>
-          </div>
-          <div className="bg-[#2b2b2b] rounded-2xl shadow-xl p-6 text-center border border-gray-700">
-            <FaPhone className="text-3xl text-red-500 mx-auto mb-4" />
-            <h3 className="text-xl font-bold mb-2">Contacto</h3>
-            <p className="text-gray-300">(+51) 987 654 321</p>
-            <p className="text-gray-300">reservas@foraneos.com</p>
-          </div>
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          className="bg-[#2b2b2b] rounded-2xl shadow-2xl p-8 border border-gray-700"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="flex flex-col">
-              <label className="mb-2 font-semibold flex items-center gap-2 text-gray-100">
-                <FaUser className="text-red-500" />
-                Nombre completo
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                className="p-4 rounded-lg bg-[#1f1f1f] text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                placeholder="Tu nombre completo"
-              />
-            </div>
-
-            <div className="flex flex-col">
-              <label className="mb-2 font-semibold flex items-center gap-2 text-gray-100">
-                <FaEnvelope className="text-red-500" />
-                Correo electrónico
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="p-4 rounded-lg bg-[#1f1f1f] text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                placeholder="correo@ejemplo.com"
-              />
-            </div>
-
-            <div className="flex flex-col">
-              <label className="mb-2 font-semibold flex items-center gap-2 text-gray-100">
-                <FaPhone className="text-red-500" />
-                Teléfono
-              </label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                required
-                className="p-4 rounded-lg bg-[#1f1f1f] text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                placeholder="999 999 999"
-              />
-            </div>
-
-            <div className="flex flex-col">
-              <label className="mb-2 font-semibold flex items-center gap-2 text-gray-100">
-                <FaUsers className="text-red-500" />
-                Número de personas
-              </label>
-              <select
-                name="guests"
-                value={formData.guests}
-                onChange={handleChange}
-                className="p-4 rounded-lg bg-[#1f1f1f] text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-              >
-                {[...Array(10)].map((_, i) => (
-                  <option key={i} value={i + 1}>
-                    {i + 1} persona{i > 0 ? "s" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col">
-              <label className="mb-2 font-semibold flex items-center gap-2 text-gray-100">
-                <FaCalendarAlt className="text-red-500" />
-                Fecha
-              </label>
-              <input
-                type="date"
-                name="date"
-                value={formData.date}
-                onChange={handleChange}
-                required
-                min={new Date().toISOString().split("T")[0]}
-                className="p-4 rounded-lg bg-[#1f1f1f] text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-              />
-            </div>
-
-            <div className="flex flex-col">
-              <label className="mb-2 font-semibold flex items-center gap-2 text-gray-100">
-                <FaClock className="text-red-500" />
-                Hora preferida
-              </label>
-              <select
-                name="time"
-                value={formData.time}
-                onChange={handleChange}
-                required
-                className="p-4 rounded-lg bg-[#1f1f1f] text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-              >
-                <option value="">Selecciona una hora</option>
-                {availableTimes.map((time) => (
-                  <option key={time} value={time}>
-                    {time}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Tipo de mesa */}
-          <div className="mb-8">
-            <label className="mb-4 font-semibold block text-gray-100">
-              Tipo de mesa preferida
+        )}
+        <form onSubmit={submit} className="rounded-2xl border border-neutral-700 bg-neutral-900 p-7">
+          <div className="grid gap-5 md:grid-cols-2">
+            <label>Fecha
+              <input className={inputClass} type="date" required min={today} value={date}
+                onChange={(e) => { setDate(e.target.value); setCreated(null); }} />
             </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {tableTypes.map((type) => (
-                <label
-                  key={type.value}
-                  className={`p-4 rounded-lg border-2 cursor-pointer transition-colors bg-[#242424] ${
-                    formData.tableType === type.value
-                      ? "border-red-500 bg-[#36161a]"
-                      : "border-gray-600 hover:border-red-400"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="tableType"
-                    value={type.value}
-                    checked={formData.tableType === type.value}
-                    onChange={handleChange}
-                    className="sr-only"
-                  />
-                  <div className="text-center">
-                    <h4 className="font-semibold mb-1 text-white">
-                      {type.label}
-                    </h4>
-                    <p className="text-sm text-gray-300">
-                      {type.description}
-                    </p>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Solicitudes especiales */}
-          <div className="mb-8">
-            <label className="mb-2 font-semibold block text-gray-100">
-              Solicitudes especiales (opcional)
+            <label>Número de personas
+              <select className={inputClass} value={guests}
+                onChange={(e) => { setGuests(Number(e.target.value)); setCreated(null); }}>
+                {Array.from({ length: 10 }, (_, i) => i + 1)
+                  .map((v) => <option key={v} value={v}>{v} persona(s)</option>)}
+              </select>
             </label>
-            <textarea
-              name="specialRequests"
-              value={formData.specialRequests}
-              onChange={handleChange}
-              rows={4}
-              className="w-full p-4 rounded-lg bg-[#1f1f1f] text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
-              placeholder="Cumpleaños, aniversario, alergias alimentarias, etc."
-            />
+            <label>Horario disponible
+              <select className={inputClass} required value={time} disabled={!date || loading}
+                onChange={(e) => { setTime(e.target.value); setTableId(null); setCreated(null); }}>
+                <option value="">{loading ? "Consultando..." : "Seleccionar horario"}</option>
+                {slots.map((v) => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </label>
+            <label>Mesa
+              <select className={inputClass} required value={tableId ?? ""} disabled={!time}
+                onChange={(e) => setTableId(Number(e.target.value) || null)}>
+                <option value="">Seleccionar mesa</option>
+                {tables.map((t) => <option key={t.id} value={t.id}>{t.name} · capacidad {t.capacity}</option>)}
+              </select>
+            </label>
+            <label>Nombre de contacto
+              <input className={inputClass} required value={name} maxLength={100}
+                onChange={(e) => setName(e.target.value)} />
+            </label>
+            <label>Teléfono
+              <input className={inputClass} required type="tel" minLength={7} maxLength={15}
+                value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </label>
           </div>
-
-          <div className="flex justify-center">
-            <button
-              type="submit"
-              className="bg-red-600 text-white font-semibold px-12 py-4 rounded-xl hover:bg-red-700 transition-colors text-lg shadow-lg hover:shadow-2xl transform hover:scale-105"
-            >
-              Confirmar Reserva
-            </button>
-          </div>
+          {date && !loading && !error && slots.length === 0 &&
+            <p className="mt-4 text-yellow-300">No hay horarios disponibles para esa fecha y cantidad de personas.</p>}
+          {error && <p className="mt-4 rounded-lg bg-red-950 p-3 text-red-200" role="alert">{error}</p>}
+          {created && <p className="mt-4 rounded-lg bg-green-950 p-4 text-green-200" role="status">
+            Solicitud #{created.id} registrada. Estado: {statusNames[created.status]}.
+            La solicitud no implica confirmación automática.
+          </p>}
+          <button disabled={!isClient || !tableId || sending || loading} type="submit"
+            className="mt-7 w-full rounded-lg bg-red-600 p-4 font-semibold hover:bg-red-700 disabled:opacity-50">
+            {sending ? "Guardando..." : "Solicitar reserva"}
+          </button>
+          <p className="mt-3 text-center text-xs text-neutral-400">
+            La disponibilidad se comprueba nuevamente al registrar la reserva.
+          </p>
         </form>
+        {isClient && (
+          <div className="mt-8 rounded-2xl border border-neutral-700 bg-neutral-900 p-6">
+            <h2 className="mb-4 text-2xl font-semibold">Mis reservas recientes</h2>
+            {bookings.length === 0 && <p className="text-neutral-300">No tienes reservas registradas.</p>}
+            <ul className="space-y-3">
+              {bookings.map((item) => <li key={item.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-700 p-3">
+                <span>#{item.id} · {item.reservationDate} {item.reservationTime.slice(0, 5)} ·
+                  {item.numberOfPeople} personas · {statusNames[item.status]}</span>
+                {(item.status === "PENDING" || item.status === "CONFIRMED") && (
+                  <button type="button" disabled={cancelling === item.id}
+                    onClick={() => void cancel(item.id)}
+                    className="rounded border border-red-500 px-3 py-2 text-sm disabled:opacity-50">
+                    {cancelling === item.id ? "Cancelando..." : "Cancelar"}
+                  </button>
+                )}
+              </li>)}
+            </ul>
+          </div>
+        )}
       </div>
     </section>
   );
 }
-
-export default Reservations;
