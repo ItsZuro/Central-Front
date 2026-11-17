@@ -5,7 +5,7 @@ import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { useCartStore } from "@/core/stores/cart/cart.store";
 import type { OrderRequest } from "@/core/types/order/order.model";
 import { ChevronLeft } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import DeliveryForm from "./components/DeliveryForm";
@@ -14,7 +14,7 @@ import LoginPrompt from "./components/LoginPrompt";
 import MapModal from "./components/MapModal";
 import OrderSummary from "./components/OrderSummary";
 import PaymentSelector from "./components/PaymentSelector";
-import { BASE_URL } from "@/core/api/api";
+import { BASE_URL, api } from "@/core/api/api";
 import type { AxiosError } from "axios";
 
 export default function CheckoutPage() {
@@ -41,6 +41,9 @@ export default function CheckoutPage() {
     lng: number;
   } | null>(null);
   const [references, setReferences] = useState("");
+  const [deliveryQuote, setDeliveryQuote] = useState<{ distanceKm: number; durationMinutes: number } | null>(null);
+  const [isCheckingDelivery, setIsCheckingDelivery] = useState(false);
+  const deliveryQuoteSequence = useRef(0);
 
   // Datos de Contacto e Identidad
   const [phone, setPhone] = useState("");
@@ -74,11 +77,31 @@ export default function CheckoutPage() {
   ) => {
     setAddress(selectedAddress);
     setCoordinates({ lat, lng });
+    setDeliveryQuote(null);
+    setIsCheckingDelivery(true);
+    const currentRequest = ++deliveryQuoteSequence.current;
+    void api.get<{ data: { distanceKm: number; durationMinutes: number } }>(
+      "/orders/delivery/quote", { params: { latitude: lat, longitude: lng } }
+    ).then((response) => {
+      if (currentRequest === deliveryQuoteSequence.current) {
+        setDeliveryQuote(response.data.data);
+      }
+    }).catch(() => {
+      if (currentRequest === deliveryQuoteSequence.current) {
+        toast.error("Esta ubicación está fuera de cobertura o no se pudo verificar la ruta.");
+      }
+    }).finally(() => {
+      if (currentRequest === deliveryQuoteSequence.current) setIsCheckingDelivery(false);
+    });
   };
 
   const handleConfirmMap = () => {
     if (!coordinates) {
       toast.error("Por favor selecciona una ubicación en el mapa");
+      return;
+    }
+    if (isCheckingDelivery || !deliveryQuote) {
+      toast.error("Espera a que se verifique la cobertura de delivery.");
       return;
     }
     setIsMapOpen(false);
@@ -87,8 +110,8 @@ export default function CheckoutPage() {
   // --- PROCESO PRINCIPAL DE ORDEN ---
   const handleProcessOrder = () => {
     // 1. Validaciones de Campos
-    if (!address.trim() || !coordinates) {
-      return toast.error("Selecciona tu dirección de entrega en el mapa");
+    if (!address.trim() || !coordinates || !deliveryQuote || isCheckingDelivery) {
+      return toast.error("Selecciona una dirección con cobertura de delivery verificada");
     }
     if (!phone.trim() || phone.length < 9) {
       return toast.error("Ingresa un teléfono válido de 9 dígitos");
@@ -281,6 +304,12 @@ export default function CheckoutPage() {
                   setDocType={setDocType}
                   setDocNumber={setDocNumber}
                 />
+                {isCheckingDelivery && <p className="text-amber-400 text-sm">Verificando ruta y cobertura de delivery...</p>}
+                {deliveryQuote && (
+                  <p className="text-green-400 text-sm">
+                    Reparto disponible: {deliveryQuote.distanceKm.toFixed(2)} km de ruta, aproximadamente {deliveryQuote.durationMinutes} min de traslado (sin contar preparación).
+                  </p>
+                )}
                 <PaymentSelector
                   selectedMethod={paymentMethod}
                   onSelect={setPaymentMethod}
