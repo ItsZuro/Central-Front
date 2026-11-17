@@ -29,15 +29,21 @@ export default function PaymentValidate() {
       const metadata = JSON.parse(metadataString);
 
       try {
-        await paymentService.confirmNiubizPayment({
+        const confirmation = await paymentService.confirmNiubizPayment({
           transactionToken: tokenFromUrl,
           purchaseNumber: metadata.purchaseNumber,
           amount: metadata.amount,
         });
 
+        if (confirmation.data.status !== "CONFIRMED") {
+          throw new Error("El servidor no confirmó el pago.");
+        }
         localStorage.removeItem("pending_payment_metadata");
         clearCart();
-        navigate("/payment/success");
+        navigate("/payment/success", {
+          state: { orderId: metadata.orderId, paymentStatus: "CONFIRMED" },
+          replace: true,
+        });
       } catch (error) {
         console.error("Error validando pago:", error);
         toast.error("Hubo un problema confirmando tu pago con el banco.");
