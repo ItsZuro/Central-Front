@@ -59,7 +59,8 @@ export default function CheckoutPage() {
   // El backend aún no incorpora una tarifa de envío al total de la orden.
   // No mostrar ni cobrar una tarifa ficticia hasta implementar cotización del servidor.
   const deliveryFee = 0;
-  const total = subtotal + deliveryFee;
+  // Coincide con el cálculo de IGV configurado en Spring Boot (18%).
+  const total = Number((subtotal * 1.18 + deliveryFee).toFixed(2));
   const isLoading = isCreatingOrder || isProcessingPayment;
 
   // Debug de usuario
@@ -148,6 +149,8 @@ export default function CheckoutPage() {
       details: items.map((item) => ({
         productId: item.product.id,
         quantity: item.quantity,
+        extraIds: item.selectedExtras.map((extra) => extra.id),
+        notes: item.notes,
       })),
       deliveryAddress: {
         street: address,
