@@ -86,8 +86,12 @@ export default function OrderSummary({
       {/* Footer con Totales y Botón */}
       <div className="p-6 bg-neutral-900 border-t border-neutral-700 space-y-3 z-10 shadow-[0_-5px_20px_rgba(0,0,0,0.3)]">
         <div className="flex justify-between text-sm text-gray-400">
-          <span>Subtotal</span>
+          <span>Subtotal (sin IGV)</span>
           <span>S/ {subtotal.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between text-sm text-gray-400">
+          <span>IGV (18%)</span>
+          <span>S/ {(total - subtotal - deliveryFee).toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-sm text-gray-400">
           <span>Costo de envío</span>
