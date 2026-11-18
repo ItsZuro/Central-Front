@@ -20,8 +20,14 @@ export function useLoginMutation() {
     onSuccess: (data) => {
       setAuth(data);
 
-      const userRole = data.user.roles?.[0];
-      const redirectPath = roleDefaultRoutes[userRole] || "/";
+      // Las cuentas de personal pueden tener varios roles: elegir por prioridad,
+      // sin depender del orden no determinista del Set devuelto por el backend.
+      const priority = [
+        "ROLE_ADMIN", "ROLE_MANAGER", "ROLE_CHEF",
+        "ROLE_CASHIER", "ROLE_WAITER", "ROLE_SUPPLIER", "ROLE_CLIENT",
+      ];
+      const userRole = priority.find((role) => data.user.roles?.includes(role));
+      const redirectPath = userRole ? roleDefaultRoutes[userRole] || "/" : "/";
 
       navigate(redirectPath, { replace: true });
     },
