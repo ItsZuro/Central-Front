@@ -102,7 +102,8 @@ export default function ProductDrawer({
       selectedExtras:
         dish.extras?.filter((e) => selectedExtraIds.includes(e.id)) || [],
       notes,
-      finalPrice: totalPrice,
+      // El carrito almacena precio UNITARIO; la cantidad se aplica una sola vez.
+      finalPrice: Number((totalPrice / quantity).toFixed(2)),
     };
 
     console.log("Item para el carrito:", cartItem); 
