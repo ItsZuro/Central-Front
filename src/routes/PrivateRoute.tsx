@@ -19,7 +19,7 @@ const PrivateRoute = ({ allowedRoles }: PrivateRouteProps) => {
     );
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.roles[0])) {
+  if (allowedRoles && !user.roles.some((role) => allowedRoles.includes(role))) {
     return (
       <Navigate
         to="/"
