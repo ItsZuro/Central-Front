@@ -9,6 +9,8 @@ export interface OrderDetailInOrderResponse {
   productImageUrl: string;
   quantity: number;
   unitPrice: number;
+  selectedExtras?: string;
+  notes?: string;
 }
 
 export interface OrderStatusStepResponse {
@@ -24,6 +26,8 @@ export interface OrderStatusStepResponse {
 export interface OrderDetailRequest {
   productId: number;
   quantity: number;
+  extraIds?: number[];
+  notes?: string;
 }
 
 export interface DeliveryAddressRequest {
