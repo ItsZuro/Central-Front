@@ -181,7 +181,7 @@ export default function CheckoutPage() {
           const orderId = response.data.id;
 
           if (paymentMethod === "card") {
-            startNiubizFlow(orderId);
+            startNiubizFlow(orderId, Number(response.data.total));
           } else {
             finishSuccess(orderId);
           }
@@ -198,12 +198,12 @@ export default function CheckoutPage() {
     );
   };
 
-  const startNiubizFlow = async (orderId: number) => {
+  const startNiubizFlow = async (orderId: number, serverTotal: number) => {
     setIsProcessingPayment(true);
     try {
       const response = await paymentService.startNiubizPayment({
         orderId,
-        amount: total,
+        amount: serverTotal,
       });
 
       const { sessionKey, merchantId, purchaseNumber } = response.data;
