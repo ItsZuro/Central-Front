@@ -1,7 +1,7 @@
 import { api } from "@/core/api/api";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import axios from "axios";
-import { CircleUserRound, Pencil, Search, ShieldCheck, UserRoundCheck, UserRoundX, UsersRound, X } from "lucide-react";
+import { CircleUserRound, Pencil, Plus, Search, ShieldCheck, UserRoundCheck, UsersRound, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 interface AdminUser {
@@ -39,6 +39,11 @@ export default function Users() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState<AdminUser | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [newUser, setNewUser] = useState({
+    username: "", email: "", firstName: "", lastName: "", phone: "",
+    password: "", role: "ROLE_WAITER",
+  });
   const [form, setForm] = useState<UserForm>({
     username: "", email: "", firstName: "", lastName: "", phone: "", enabled: true,
   });
@@ -104,12 +109,37 @@ export default function Users() {
     }
   };
 
+  const createStaff = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (newUser.password.length < 12) return setError("La contraseña inicial debe tener por lo menos 12 caracteres.");
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api.post("users/admin", {
+        ...newUser,
+        username: newUser.username.trim(),
+        email: newUser.email.trim(),
+        firstName: newUser.firstName.trim(),
+        lastName: newUser.lastName.trim(),
+        phone: newUser.phone.trim() || null,
+      });
+      setCreating(false);
+      setNewUser({ username: "", email: "", firstName: "", lastName: "", phone: "", password: "", role: "ROLE_WAITER" });
+      setNotice("Cuenta creada correctamente. Ya puede iniciar sesión con sus credenciales.");
+      await load();
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <section className="mx-auto max-w-7xl space-y-7">
-      <header>
-        <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-red-600">Equipo · Administración</p>
-        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Usuarios</h1>
-        <p className="mt-2 text-sm text-slate-500">Consulta y actualiza las cuentas existentes sin modificar sus permisos.</p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div><p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-red-600">Equipo · Administración</p><h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Usuarios</h1><p className="mt-2 text-sm text-slate-500">Crea cuentas de personal y administra las existentes desde un solo lugar.</p></div>
+        <button type="button" onClick={() => { setError(""); setCreating(true); }} className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-red-700"><Plus size={18} /> Nuevo usuario</button>
       </header>
 
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
@@ -148,7 +178,26 @@ export default function Users() {
           </tr>)}</tbody>
         </table></div>}
       </div>
-      <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600"><UserRoundX size={19} className="mt-0.5 shrink-0 text-slate-400" /><p>El backend actual solo ofrece registro público de clientes. Para crear empleados o administradores desde aquí habrá que incorporar un endpoint administrativo seguro. No se muestran controles que aparenten funcionar sin respaldo del servidor.</p></div>
+      <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600">Las cuentas nuevas se crean con un único rol de personal y una contraseña inicial segura. La creación requiere desplegar la nueva versión del backend antes que este frontend.</div>
+
+      {creating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setCreating(false); }} role="presentation">
+          <form onSubmit={(event) => void createStaff(event)} role="dialog" aria-modal="true" aria-label="Crear usuario" className="w-full max-w-xl space-y-5 rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
+            <div className="flex items-start justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-red-600">Personal</p><h2 className="mt-2 text-2xl font-bold text-slate-900">Nuevo usuario</h2></div><button type="button" aria-label="Cerrar" onClick={() => setCreating(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X size={20} /></button></div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-semibold text-slate-700">Usuario *<input required maxLength={30} autoComplete="off" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-red-500" /></label>
+              <label className="text-sm font-semibold text-slate-700">Correo *<input required type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-red-500" /></label>
+              <label className="text-sm font-semibold text-slate-700">Nombre *<input required value={newUser.firstName} onChange={(e) => setNewUser({ ...newUser, firstName: e.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-red-500" /></label>
+              <label className="text-sm font-semibold text-slate-700">Apellido *<input required value={newUser.lastName} onChange={(e) => setNewUser({ ...newUser, lastName: e.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-red-500" /></label>
+              <label className="text-sm font-semibold text-slate-700">Rol *<select required value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-normal outline-none focus:border-red-500"><option value="ROLE_WAITER">Mesero</option><option value="ROLE_CHEF">Cocinero</option><option value="ROLE_CASHIER">Cajero</option><option value="ROLE_MANAGER">Gerente</option><option value="ROLE_ADMIN">Administrador</option></select></label>
+              <label className="text-sm font-semibold text-slate-700">Teléfono<input value={newUser.phone} onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-red-500" /></label>
+              <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Contraseña inicial (mínimo 12 caracteres) *<input required minLength={12} maxLength={128} type="password" autoComplete="new-password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-red-500" /></label>
+            </div>
+            {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+            <div className="flex justify-end gap-3 border-t border-slate-100 pt-5"><button type="button" disabled={saving} onClick={() => setCreating(false)} className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">Cancelar</button><button type="submit" disabled={saving} className="rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">{saving ? "Guardando…" : "Crear cuenta"}</button></div>
+          </form>
+        </div>
+      )}
 
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setEditing(null); }} role="presentation">
