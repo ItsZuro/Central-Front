@@ -18,7 +18,7 @@ import MapModal from "./components/MapModal";
 import OrderSummary from "./components/OrderSummary";
 import PaymentSelector from "./components/PaymentSelector";
 import { BASE_URL, api } from "@/core/api/api";
-import type { AxiosError } from "axios";
+import axios, { type AxiosError } from "axios";
 import styles from "./Checkout.module.css";
 import {
   PENDING_PAYMENT_KEY,
@@ -139,6 +139,14 @@ export default function CheckoutPage() {
   const isCheckingDelivery = deliveryQuoteQuery.isFetching;
   const deliveryReady = canQuoteDelivery && Boolean(coordinates && deliveryQuote) &&
     !isCheckingDelivery && !deliveryQuoteQuery.isError;
+  const quoteErrorResponse = axios.isAxiosError<{ message?: string }>(deliveryQuoteQuery.error)
+    ? deliveryQuoteQuery.error.response
+    : null;
+  const deliveryOutsideCoverage = quoteErrorResponse?.status === 400;
+  const deliveryErrorDescription = deliveryOutsideCoverage
+    ? (quoteErrorResponse?.data?.message || "La dirección está fuera del área de reparto.")
+    : "No pudimos consultar la ruta en este momento. Revisa la configuración de Google Routes y la sucursal de origen.";
+
 
   // Datos de Contacto e Identidad
   const [phone, setPhone] = useState(draft?.phone || "");
@@ -629,16 +637,15 @@ export default function CheckoutPage() {
             )}
             {orderMode === "delivery" && isClient && deliveryQuoteQuery.isError && (
               <Alert
-                color="red"
+                color={deliveryOutsideCoverage ? "red" : "yellow"}
                 radius="lg"
-                title="No es posible enviar a esta dirección"
+                title={deliveryOutsideCoverage ? "Dirección fuera de cobertura" : "No se pudo verificar el delivery"}
                 styles={{
-                  root: { background: "#362125", border: "1px solid #713b43" },
-                  title: { color: "#ffb9c0" }, message: { color: "#ffc8cd" },
+                  root: { background: "#36282a", border: "1px solid #704951" },
+                  title: { color: "#ffe2b1" }, message: { color: "#eedbd1" },
                 }}
               >
-                La ruta no se pudo verificar o está fuera del área de reparto.
-                Prueba con otra ubicación dentro de la cobertura.
+                {deliveryErrorDescription}
               </Alert>
             )}
             {orderMode === "delivery" && deliveryQuote && (
