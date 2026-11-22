@@ -15,6 +15,13 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 
+const darkFieldStyles = {
+  label: { color: "#f1f2f6", fontWeight: 650 },
+  description: { color: "#a5a7b2" },
+  input: { color: "#f8fafc", backgroundColor: "#121419", borderColor: "#454650" },
+  section: { color: "#a7a9b8" },
+};
+
 function getError(error: unknown): string {
   if (axios.isAxiosError<{ message?: string }>(error)) {
     if (error.response?.status === 429) {
@@ -76,7 +83,7 @@ export default function Contact() {
   };
 
   return (
-    <Box component="section" bg="#f6f7f9" style={{ minHeight: "100vh", overflow: "hidden" }}>
+    <Box component="section" bg="#121316" style={{ minHeight: "100vh", overflow: "hidden", background: "linear-gradient(180deg, #171316 0%, #121316 45%, #121316 100%)" }}>
       <Box
         pos="relative"
         style={{
@@ -194,14 +201,14 @@ export default function Contact() {
               </Stack>
             </Paper>
 
-            <Paper withBorder radius="xl" p="lg" bg="white">
+            <Paper withBorder radius="xl" p="lg" bg="#1c1d23" style={{ borderColor: "#34343d" }}>
               <Group wrap="nowrap" gap="md">
                 <ThemeIcon size={43} variant="light" color="red" radius="md" style={{ flexShrink: 0 }}>
                   <Clock3 size={21} />
                 </ThemeIcon>
                 <Box>
-                  <Text fw={750} size="sm" c="#252631">Información importante</Text>
-                  <Text size="xs" c="dimmed" mt={5} lh={1.7}>
+                  <Text fw={750} size="sm" c="white">Información importante</Text>
+                  <Text size="xs" c="#b3b5c1" mt={5} lh={1.7}>
                     El formulario registra mensajes para revisión. No envía correos electrónicos
                     ni confirma un plazo de respuesta.
                   </Text>
@@ -214,11 +221,11 @@ export default function Contact() {
             radius="xl"
             withBorder
             p={{ base: "lg", sm: 36 }}
-            bg="white"
+            bg="#1d1e24"
             shadow="lg"
             style={{
-              borderColor: "#e6e8ed",
-              boxShadow: "0 22px 70px rgba(16,20,29,0.11)",
+              borderColor: "#373840",
+              boxShadow: "0 22px 70px rgba(0,0,0,0.30)",
             }}
           >
             <Group justify="space-between" align="center" wrap="wrap" gap="xs">
@@ -230,17 +237,17 @@ export default function Contact() {
                   Escríbenos
                 </Text>
               </Group>
-              <Badge color="gray" variant="light" size="md" radius="xl">Formulario seguro</Badge>
+              <Badge color="red" variant="outline" size="md" radius="xl">Formulario seguro</Badge>
             </Group>
 
-            <Title order={2} mt="lg" fw={850} c="#20212c">
+            <Title order={2} mt="lg" fw={850} c="white">
               Envíanos tu consulta
             </Title>
-            <Text size="sm" c="dimmed" mt="sm" lh={1.7}>
+            <Text size="sm" c="#b5b6c2" mt="sm" lh={1.7}>
               Completa los campos y registra tu mensaje. Te mostraremos una confirmación al guardarlo.
             </Text>
 
-            <Divider my="xl" color="#ededf1" />
+            <Divider my="xl" color="#393941" />
 
             {!canSubmit && (
               <Alert
@@ -249,9 +256,14 @@ export default function Contact() {
                 title="Necesitas una cuenta de cliente"
                 icon={<LockKeyhole size={19} />}
                 mb="xl"
+                styles={{
+                  root: { backgroundColor: "#302719", borderColor: "#614729" },
+                  title: { color: "#f7c772" },
+                  message: { color: "#f2e8d8" },
+                }}
               >
                 <Stack gap="sm">
-                  <Text size="sm">
+                  <Text size="sm" c="#f2e8d8">
                     Puedes conocer esta página sin iniciar sesión, pero para enviar consultas
                     necesitas acceder con una cuenta de cliente.
                   </Text>
@@ -259,7 +271,7 @@ export default function Contact() {
                     <Button component={Link} to="/auth/login" size="xs" color="red" rightSection={<ArrowRight size={14} />}>
                       Iniciar sesión
                     </Button>
-                    <Button component={Link} to="/auth/signup" size="xs" color="gray" variant="light">
+                    <Button component={Link} to="/auth/signup" size="xs" color="gray" variant="outline" styles={{ root: { borderColor: "#8b8172", color: "#f2e8d8" } }}>
                       Crear cuenta
                     </Button>
                   </Group>
@@ -284,6 +296,7 @@ export default function Contact() {
             <form onSubmit={(event) => void submit(event)}>
               <Stack gap="lg">
                 <TextInput
+                  styles={darkFieldStyles}
                   label="Tu correo electrónico"
                   description="Se obtiene automáticamente de tu cuenta de cliente."
                   value={user?.email || ""}
@@ -294,6 +307,7 @@ export default function Contact() {
                   radius="md"
                 />
                 <TextInput
+                  styles={darkFieldStyles}
                   data-autofocus={false}
                   label="Asunto"
                   description="Escribe brevemente el motivo de tu consulta."
@@ -308,6 +322,7 @@ export default function Contact() {
                   radius="md"
                 />
                 <Textarea
+                  styles={darkFieldStyles}
                   label="Tu mensaje"
                   description="Cuéntanos los detalles para que podamos revisarlos."
                   placeholder="Hola, quisiera consultar sobre..."
@@ -322,10 +337,10 @@ export default function Contact() {
                   radius="md"
                 />
                 <Group justify="space-between" gap="xs">
-                  <Text c="dimmed" size="xs">
+                  <Text c="#a5a7b2" size="xs">
                     Evita incluir contraseñas o información bancaria.
                   </Text>
-                  <Text c="dimmed" size="xs" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  <Text c="#a5a7b2" size="xs" style={{ fontVariantNumeric: "tabular-nums" }}>
                     {message.length}/3000
                   </Text>
                 </Group>
@@ -351,7 +366,7 @@ export default function Contact() {
                 </Button>
                 <Group justify="center" gap="xs">
                   <LockKeyhole size={14} color="#9ca3af" />
-                  <Text c="dimmed" size="xs" ta="center">
+                  <Text c="#a5a7b2" size="xs" ta="center">
                     Tu mensaje quedará registrado en Restaurant Central.
                   </Text>
                 </Group>
