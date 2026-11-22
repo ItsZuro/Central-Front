@@ -101,8 +101,6 @@ export default function CheckoutPage() {
     .sort((a, b) => a.id - b.id)[0];
   const deliveryTypeConfigured = Boolean(checkoutConfig.data?.types.some((type) => type.code === "DELIVERY"));
   const canQuoteDelivery = Boolean(deliveryStore && deliveryTypeConfigured);
-  const deliveryReady = canQuoteDelivery && Boolean(coordinates && deliveryQuoteQuery.data) &&
-    !deliveryQuoteQuery.isFetching && !deliveryQuoteQuery.isError;
   const pickupConfigured = Boolean(
     pickupStore &&
     checkoutConfig.data?.types.some((type) => type.code === "TAKE_AWAY") &&
@@ -139,6 +137,8 @@ export default function CheckoutPage() {
   });
   const deliveryQuote = deliveryQuoteQuery.data ?? null;
   const isCheckingDelivery = deliveryQuoteQuery.isFetching;
+  const deliveryReady = canQuoteDelivery && Boolean(coordinates && deliveryQuote) &&
+    !isCheckingDelivery && !deliveryQuoteQuery.isError;
 
   // Datos de Contacto e Identidad
   const [phone, setPhone] = useState(draft?.phone || "");
