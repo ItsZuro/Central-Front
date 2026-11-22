@@ -40,6 +40,15 @@ function dateLabel(iso?: string) {
   return year && month && day ? day + "/" + month + "/" + year : iso;
 }
 function dateTimeLabel(iso?: string) { return iso ? dateLabel(iso) + " " + iso.slice(11, 16) : "—"; }
+function peruInstantLabel(iso?: string) {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("es-PE", {
+    timeZone: "America/Lima", day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(date);
+}
 function errorMessage(error: unknown) {
   if (axios.isAxiosError<{ message?: string }>(error)) {
     return error.response?.data?.message || "El servidor no pudo completar la operación.";
@@ -251,7 +260,7 @@ export default function Customers() {
               <Table verticalSpacing="md" horizontalSpacing="md" highlightOnHover>
                 <Table.Thead><Table.Tr>
                   <Table.Th>Cliente</Table.Th><Table.Th>Correo</Table.Th>
-                  <Table.Th>Registro</Table.Th><Table.Th>Puntos</Table.Th>
+                  <Table.Th>Origen</Table.Th><Table.Th>Puntos</Table.Th>
                   <Table.Th>Estado</Table.Th><Table.Th ta="right">Acciones</Table.Th>
                 </Table.Tr></Table.Thead>
                 <Table.Tbody>{rows.map((customer) => (
@@ -375,7 +384,7 @@ export default function Customers() {
                         <Text fw={800} size="sm">Reserva #{reservation.id}</Text>
                         <Badge color={reservation.status === "CONFIRMED" ? "green" :
                           reservation.status === "CANCELLED" ? "red" : "yellow"} variant="light">
-                          {reservation.status}</Badge>
+                          {({ PENDING: "Pendiente", CONFIRMED: "Confirmada", CANCELLED: "Cancelada", COMPLETED: "Completada" } as Record<string, string>)[reservation.status] || reservation.status}</Badge>
                       </Group>
                       <Group gap="xs" mb="xs"><Clock3 size={15} color="#b94d58"/>
                         <Text size="sm">{dateLabel(reservation.reservationDate)}, {reservation.reservationTime?.slice(0,5)}</Text>
@@ -399,7 +408,7 @@ export default function Customers() {
                     <Paper key={message.id} p="md" withBorder radius="md">
                       <Group justify="space-between" mb="xs">
                         <Text size="sm" fw={800}>{message.subject}</Text>
-                        <Text size="xs" c="dimmed">{dateTimeLabel(message.createdAt)}</Text>
+                        <Text size="xs" c="dimmed">{peruInstantLabel(message.createdAt)}</Text>
                       </Group>
                       <Text size="sm" style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>
                         {message.message}
@@ -420,7 +429,7 @@ export default function Customers() {
                       <Group justify="space-between" mb="xs">
                         <Badge variant="light" color={action.action === "SUSPENDED" ? "orange" : "green"}>
                           {action.action === "SUSPENDED" ? "Suspendida" : "Reactivada"}</Badge>
-                        <Text c="dimmed" size="xs">{dateTimeLabel(action.occurredAt)}</Text>
+                        <Text c="dimmed" size="xs">{peruInstantLabel(action.occurredAt)}</Text>
                       </Group>
                       <Text size="sm">{action.reason}</Text>
                       <Text size="xs" c="dimmed" mt="xs">Responsable: usuario #{action.actorUserId}</Text>
