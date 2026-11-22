@@ -1,0 +1,138 @@
+.root {
+  min-height: 100vh;
+  background: #141417;
+  color: #f6f5f7;
+  --mantine-color-text: #f6f5f7;
+  --mantine-color-dimmed: #aaa6b0;
+  --mantine-color-default: #29272e;
+  --mantine-color-default-border: #49434d;
+  --mantine-color-default-hover: #41333d;
+}
+
+.header {
+  background: #1c1b20;
+  border-bottom: 1px solid #343039;
+}
+
+.hero {
+  background: linear-gradient(116deg, #40272b 0%, #292327 60%, #242227 100%);
+  border: 1px solid #70353e;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  background: #ed4046;
+  opacity: .14;
+  filter: blur(56px);
+  top: -135px;
+  right: -65px;
+  pointer-events: none;
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+}
+
+.metric {
+  background: #242329;
+  border: 1px solid #3d3942;
+  height: 100%;
+}
+
+.lane {
+  background: #1d1c21;
+  border: 1px solid #3a363e;
+  min-height: 420px;
+}
+
+.laneHeader {
+  border-bottom: 1px solid #3c3840;
+  padding-bottom: 14px;
+}
+
+.orderCard {
+  background: #29272e;
+  border: 1px solid #4b4550;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.orderCard:hover {
+  border-color: #b75163;
+  background: #302b32;
+}
+
+.itemLine {
+  background: #242227;
+  border: 1px solid #403b44;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.note {
+  background: #42332d;
+  border-left: 3px solid #e4a761;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.empty {
+  background: #242329;
+  border: 1px dashed #4a454f;
+}
+
+.filterInput {
+  background: #29272d;
+  color: #f4eef4;
+  border-color: #55505b;
+}
+.filterInput:focus {
+  background: #302b33;
+  border-color: #ef616f;
+}
+.filterInput::placeholder {
+  color: #a49ba5;
+}
+
+.root :global(.mantine-SegmentedControl-root) {
+  background: #27252c;
+  border: 1px solid #514852;
+}
+.root :global(.mantine-SegmentedControl-label) {
+  color: #e1dce5;
+}
+.root :global(.mantine-SegmentedControl-label:hover) {
+  color: #fff;
+  background: #41313b;
+}
+.root :global(.mantine-SegmentedControl-indicator) {
+  background: #b62f42;
+}
+.root :global(.mantine-Button-root[data-variant="default"]) {
+  color: #f8f4f7;
+  background: #322d35;
+  border-color: #514750;
+}
+.root :global(.mantine-Button-root[data-variant="default"]:hover) {
+  color: #fff;
+  background: #4a3945;
+}
+.root :global(.mantine-Button-root[data-variant="subtle"]) {
+  color: #e2d9df;
+}
+.root :global(.mantine-Button-root[data-variant="subtle"]:hover) {
+  color: #fff;
+  background: #42343e;
+}
+.root :global(.mantine-Button-root[data-disabled]) {
+  background: #37343c;
+  color: #aaa2ac;
+  border-color: #45414b;
+}
+.root :global(.mantine-Alert-root) {
+  border-radius: 12px;
+}
