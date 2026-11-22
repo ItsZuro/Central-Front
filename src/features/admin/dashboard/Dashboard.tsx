@@ -1,121 +1,243 @@
 import { api } from "@/core/api/api";
-import { ArrowRight, ChartNoAxesCombined, CircleCheck, PackageOpen, Plus, ShieldCheck, Tags, UtensilsCrossed, UsersRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useAuthStore } from "@/core/stores/auth/auth.store";
+import { Activity, AlertTriangle, ArrowRight, CalendarDays, ChartNoAxesCombined, CircleCheck, ClipboardList, Coffee, PackageOpen, Plus, RefreshCw, ShoppingBag, Tags, TrendingUp, UserRound, UsersRound, UtensilsCrossed } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Link } from "react-router-dom";
 
 interface Product {
   id: number;
   name: string;
-  price: number;
   categoryName?: string;
+  price: number;
   active: boolean;
 }
 
-interface Stats {
-  products: Product[];
-  categories: number;
-  users: number;
+interface TopProduct {
+  productId: number;
+  productName: string;
+  totalQuantitySold: number;
+  totalRevenue: number;
 }
 
-export default function Dashboard() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [error, setError] = useState("");
+interface Summary {
+  totalOrders: number;
+  totalSales: number;
+  ordersToday: number;
+  salesToday: number;
+  topProducts: TopProduct[];
+  salesLast7Days: Record<string, number>;
+  ordersLast7Days: Record<string, number>;
+}
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      try {
-        const [p, c, u] = await Promise.all([
-          api.get("products/all"),
-          api.get("categories"),
-          api.get("users/admin"),
-        ]);
-        if (active) setStats({
-          products: Array.isArray(p.data?.data) ? p.data.data : [],
-          categories: Array.isArray(c.data?.data) ? c.data.data.length : 0,
-          users: Array.isArray(u.data?.data) ? u.data.data.length : 0,
-        });
-      } catch {
-        if (active) setError("No se pudieron cargar todos los indicadores. Comprueba la sesión y la conexión con el backend.");
-      }
-    };
-    void load();
-    return () => { active = false; };
+interface InventoryItem {
+  ingredientId: number;
+  ingredientName: string;
+  currentStock: number;
+  minimumStock: number;
+  status: string;
+  unitName: string;
+}
+
+interface AdminData {
+  products: Product[] | null;
+  categories: number | null;
+  users: number | null;
+  summary: Summary | null;
+  inventory: InventoryItem[] | null;
+}
+
+const money = (value: number) =>
+  "S/ " + Number(value || 0).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const dayLabel = (date: string) => {
+  const [year, month, day] = date.split("-").map(Number);
+  if (!year || !month || !day) return date;
+  return new Date(year, month - 1, day).toLocaleDateString("es-PE", { weekday: "short", day: "numeric" });
+};
+
+export default function Dashboard() {
+  const user = useAuthStore((state) => state.user);
+  const [state, setState] = useState<AdminData>({ products: null, categories: null, users: null, summary: null, inventory: null });
+  const [pending, setPending] = useState(true);
+  const [failed, setFailed] = useState<string[]>([]);
+  const [refresh, setRefresh] = useState(0);
+
+  const load = useCallback(async () => {
+    setPending(true);
+    const results = await Promise.allSettled([
+      api.get("reports/summary"),
+      api.get("products/all"),
+      api.get("categories"),
+      api.get("users/admin"),
+      api.get("reports/inventory"),
+    ]);
+    const [summary, products, categories, users, inventory] = results;
+    const failures: string[] = [];
+    if (summary.status === "rejected") failures.push("reportes");
+    if (products.status === "rejected") failures.push("productos");
+    if (categories.status === "rejected") failures.push("categorías");
+    if (users.status === "rejected") failures.push("usuarios");
+    if (inventory.status === "rejected") failures.push("inventario");
+
+    setState({
+      summary: summary.status === "fulfilled" ? summary.value.data?.data || null : null,
+      products: products.status === "fulfilled" && Array.isArray(products.value.data?.data) ? products.value.data.data : null,
+      categories: categories.status === "fulfilled" && Array.isArray(categories.value.data?.data) ? categories.value.data.data.length : null,
+      users: users.status === "fulfilled" && Array.isArray(users.value.data?.data) ? users.value.data.data.length : null,
+      inventory: inventory.status === "fulfilled" && Array.isArray(inventory.value.data?.data) ? inventory.value.data.data : null,
+    });
+    setFailed(failures);
+    setPending(false);
   }, []);
 
-  const activeProducts = stats?.products.filter((p) => p.active).length ?? 0;
-  const metrics = [
-    { title: "Platos registrados", value: stats?.products.length, icon: UtensilsCrossed, to: "/admin/products", sub: "Total en el catálogo" },
-    { title: "Platos publicados", value: activeProducts, icon: CircleCheck, to: "/admin/products", sub: "Visibles para clientes" },
-    { title: "Categorías", value: stats?.categories, icon: Tags, to: "/admin/categories", sub: "Familias del menú" },
-    { title: "Usuarios", value: stats?.users, icon: UsersRound, to: "/admin/users", sub: "Cuentas registradas" },
+  useEffect(() => { void load(); }, [load, refresh]);
+
+  const chartData = useMemo(() => {
+    const sales = state.summary?.salesLast7Days || {};
+    const orders = state.summary?.ordersLast7Days || {};
+    return Array.from(new Set([...Object.keys(sales), ...Object.keys(orders)]))
+      .sort()
+      .map((date) => ({
+        date,
+        label: dayLabel(date),
+        sales: Number(sales[date] || 0),
+        orders: Number(orders[date] || 0),
+      }));
+  }, [state.summary]);
+
+  const lowStock = useMemo(() =>
+    state.inventory?.filter((item) => ["BAJO", "CRÍTICO", "CRITICO"].includes(String(item.status).toUpperCase())) || [],
+  [state.inventory]);
+  const activeProducts = state.products?.filter((product) => product.active).length;
+  const hasSales = chartData.some((point) => point.sales > 0);
+
+  const cards = [
+    { label: "Ventas de hoy", value: state.summary ? money(state.summary.salesToday) : "—", detail: "Ingresos registrados hoy", icon: TrendingUp, iconColor: "text-emerald-700", iconBg: "bg-emerald-50", to: "/admin/reports" },
+    { label: "Pedidos de hoy", value: state.summary ? String(state.summary.ordersToday) : "—", detail: state.summary ? `${state.summary.totalOrders} pedidos históricos` : "Conectado a reportes", icon: ShoppingBag, iconColor: "text-blue-700", iconBg: "bg-blue-50", to: "/admin/reports" },
+    { label: "Productos activos", value: activeProducts == null ? "—" : String(activeProducts), detail: state.products ? `${state.products.length} registrados en total` : "Catálogo del restaurante", icon: UtensilsCrossed, iconColor: "text-red-700", iconBg: "bg-red-50", to: "/admin/products" },
+    { label: "Alertas de stock", value: state.inventory ? String(lowStock.length) : "—", detail: state.inventory ? (lowStock.length ? "Requieren revisión" : "Sin alertas registradas") : "Inventario", icon: AlertTriangle, iconColor: "text-amber-700", iconBg: "bg-amber-50", to: "/admin/reports" },
   ];
-  const steps = [
-    { title: "Crear categorías", detail: "Entradas, platos principales, bebidas y postres.", to: "/admin/categories", complete: (stats?.categories ?? 0) > 0 },
-    { title: "Registrar productos", detail: "Añade descripciones, precios e imágenes.", to: "/admin/products", complete: (stats?.products.length ?? 0) > 0 },
-    { title: "Revisar usuarios", detail: "Verifica las cuentas disponibles y sus roles.", to: "/admin/users", complete: (stats?.users ?? 0) > 1 },
+
+  const tools = [
+    { label: "Agregar producto", help: "Actualizar catálogo", icon: Plus, to: "/admin/products" },
+    { label: "Crear categoría", help: "Organizar menú", icon: Tags, to: "/admin/categories" },
+    { label: "Administrar usuarios", help: "Equipo y permisos", icon: UsersRound, to: "/admin/users" },
+    { label: "Mi perfil", help: "Datos y seguridad", icon: UserRound, to: "/admin/profile" },
   ];
 
   return (
     <section className="mx-auto max-w-7xl space-y-7">
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#af0914] via-[#d61020] to-[#f04d3d] p-7 text-white shadow-xl shadow-red-100 sm:p-10">
-        <div className="pointer-events-none absolute -right-12 -top-24 h-72 w-72 rounded-full border-[50px] border-white/10" />
-        <div className="pointer-events-none absolute bottom-[-100px] right-40 h-52 w-52 rounded-full bg-white/5" />
-        <div className="relative z-10 max-w-2xl">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-bold tracking-wide"><ShieldCheck size={15} /> RESTAURANT CENTRAL · ADMIN</div>
-          <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Tu restaurante, bajo control.</h1>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-red-50 sm:text-base">Gestiona el catálogo, organiza los platos y administra tu equipo desde un solo lugar. Los indicadores proceden de tu API.</p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Link to="/admin/products" className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-red-700 shadow-sm hover:bg-red-50"><Plus size={18} /> Gestionar menú</Link>
-            <Link to="/admin/reports" className="inline-flex items-center gap-2 rounded-xl border border-white/35 bg-white/10 px-5 py-3 text-sm font-bold text-white hover:bg-white/20"><ChartNoAxesCombined size={18} /> Ver reportes</Link>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-600">Restaurant Central / Administración</p>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">Resumen operativo</h1>
+          <p className="mt-2 text-sm text-slate-500">Bienvenido, {user?.firstName || user?.username || "administrador"}. Consulta el estado real de tu restaurante.</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setRefresh((n) => n + 1)} disabled={pending}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-300 disabled:opacity-50">
+            <RefreshCw size={16} className={pending ? "animate-spin" : ""} /> Actualizar
+          </button>
+          <Link to="/admin/products" className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-700"><Plus size={17} /> Nuevo plato</Link>
+        </div>
+      </header>
+
+      {failed.length > 0 && <div role="alert" className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900"><AlertTriangle size={19} className="mt-0.5 shrink-0"/> No fue posible consultar {failed.join(", ")}. Los datos no disponibles se muestran con «—». Puedes intentar actualizar.</div>}
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => <Link key={card.label} to={card.to} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-red-200 hover:shadow-md">
+          <div className="flex items-start justify-between">
+            <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${card.iconBg} ${card.iconColor}`}><card.icon size={22}/></span>
+            <ArrowRight size={16} className="text-slate-300 group-hover:text-red-500"/>
+          </div>
+          <p className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-500">{card.label}</p>
+          <p className="mt-2 text-3xl font-extrabold text-slate-900">{pending ? "…" : card.value}</p>
+          <p className="mt-2 text-xs text-slate-400">{card.detail}</p>
+        </Link>)}
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[1.65fr_1fr]">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><ChartNoAxesCombined size={21} className="text-red-600"/> Evolución de ventas</h2>
+              <p className="mt-1 text-xs text-slate-500">Últimos siete días · Datos reales de pedidos</p>
+            </div>
+            <div className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700"><CalendarDays size={14} className="mr-1 inline"/> 7 días</div>
+          </div>
+
+          {state.summary && hasSales ? (
+            <div className="mt-6 h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 8, right: 15, left: -12, bottom: 0 }}>
+                  <defs><linearGradient id="central-sales-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#dc2626" stopOpacity={0.22}/><stop offset="95%" stopColor="#dc2626" stopOpacity={0}/></linearGradient></defs>
+                  <CartesianGrid vertical={false} stroke="#eef0f4" strokeDasharray="3 3"/>
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={50} />
+                  <Tooltip formatter={(value) => money(Number(value))} labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.date || "")}/>
+                  <Area type="monotone" dataKey="sales" name="Ventas" stroke="#dc2626" strokeWidth={3} fill="url(#central-sales-gradient)" activeDot={{ r: 5 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="mt-5 flex h-64 flex-col items-center justify-center rounded-xl bg-slate-50 text-center"><Activity size={31} className="text-slate-300"/><p className="mt-3 font-semibold text-slate-600">{pending ? "Cargando ventas…" : !state.summary ? "Reportes no disponibles" : "Aún no se registran ventas"}</p><p className="mt-1 text-xs text-slate-400">El gráfico se completará con los pedidos reales.</p></div>
+          )}
+
+          <div className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-5">
+            <div><p className="text-xs text-slate-500">Ventas acumuladas</p><p className="mt-1 text-lg font-extrabold text-slate-900">{state.summary ? money(state.summary.totalSales) : "—"}</p></div>
+            <div><p className="text-xs text-slate-500">Total de pedidos</p><p className="mt-1 text-lg font-extrabold text-slate-900">{state.summary ? state.summary.totalOrders : "—"}</p></div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div><h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><ClipboardList size={21} className="text-red-600"/> Acciones rápidas</h2><p className="mt-1 text-xs text-slate-500">Herramientas de administración</p></div>
+          <div className="mt-6 space-y-3">
+            {tools.map((action) => <Link key={action.label} to={action.to} className="group flex items-center gap-4 rounded-xl border border-slate-100 p-4 transition hover:border-red-100 hover:bg-red-50/40">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600 group-hover:bg-red-50 group-hover:text-red-700"><action.icon size={20}/></span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-bold text-slate-900">{action.label}</span><span className="mt-1 block text-xs text-slate-500">{action.help}</span></span>
+              <ArrowRight size={17} className="text-slate-300 group-hover:text-red-500"/>
+            </Link>)}
           </div>
         </div>
       </div>
 
-      {error && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{error}</div>}
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((metric) => (
-          <Link to={metric.to} key={metric.title} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-red-100 hover:shadow-md">
-            <div className="flex items-center justify-between"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-600"><metric.icon size={22} /></span><ArrowRight size={16} className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-red-600" /></div>
-            <p className="mt-5 text-sm font-semibold text-slate-600">{metric.title}</p>
-            <p className="mt-1 text-3xl font-extrabold text-slate-900">{stats ? metric.value : "…"}</p>
-            <p className="mt-2 text-xs text-slate-400">{metric.sub}</p>
-          </Link>
-        ))}
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1.05fr_1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-          <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-red-600">Primeros pasos</p><h2 className="mt-2 text-xl font-extrabold text-slate-900">Prepara tu restaurante</h2></div><span className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700">{steps.filter((step) => step.complete).length} de {steps.length}</span></div>
-          <p className="mt-2 text-sm text-slate-500">Completa estas tareas para habilitar las principales funciones del sistema.</p>
-          <div className="mt-6 space-y-3">{steps.map((step, i) => <Link key={step.title} to={step.to} className="group flex items-center gap-4 rounded-xl border border-slate-100 p-4 transition hover:border-red-100 hover:bg-red-50/40">
-            <span className={step.complete ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 font-bold text-emerald-600" : "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 font-bold text-slate-600"}>{step.complete ? <CircleCheck size={20} /> : String(i + 1).padStart(2, "0")}</span>
-            <div className="min-w-0 flex-1"><p className="font-semibold text-slate-900">{step.title}</p><p className="mt-1 text-xs text-slate-500">{step.detail}</p></div>
-            <ArrowRight size={16} className="text-slate-400 group-hover:text-red-600" />
-          </Link>)}</div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-          <div className="flex items-center justify-between gap-2"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-red-600">Catálogo</p><h2 className="mt-2 text-xl font-extrabold text-slate-900">Últimos productos</h2></div><Link to="/admin/products" className="text-sm font-semibold text-red-600 hover:underline">Ver todos</Link></div>
-          <p className="mt-2 text-sm text-slate-500">Productos actualmente registrados en PostgreSQL.</p>
-          {stats && stats.products.length > 0 ? (
+      <div className="grid gap-5 xl:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><Coffee size={21} className="text-red-600"/> Platos más vendidos</h2><p className="mt-1 text-xs text-slate-500">Ordenados por unidades vendidas</p></div><Link className="text-xs font-bold text-red-700 hover:underline" to="/admin/reports">Ver reportes</Link></div>
+          {state.summary?.topProducts?.length ? (
             <div className="mt-5 divide-y divide-slate-100">
-              {stats.products.slice(-5).reverse().map((product) => <div key={product.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600"><UtensilsCrossed size={19} /></span><div><p className="font-semibold text-slate-900">{product.name}</p><p className="text-xs text-slate-400">{product.categoryName || "Sin categoría"} · {product.active ? "Publicado" : "Oculto"}</p></div></div>
-                <span className="whitespace-nowrap font-bold text-slate-900">S/ {Number(product.price).toFixed(2)}</span>
+              {state.summary.topProducts.slice(0,5).map((item, index) => <div key={item.productId} className="flex items-center gap-3 py-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-xs font-black text-red-700">{index + 1}</span>
+                <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-900">{item.productName}</p><p className="text-xs text-slate-500">{item.totalQuantitySold} unidades</p></div>
+                <strong className="text-sm text-slate-900">{money(item.totalRevenue)}</strong>
               </div>)}
             </div>
           ) : (
-            <div className="mt-6 flex flex-col items-center rounded-2xl bg-slate-50 px-5 py-12 text-center">
-              <PackageOpen size={36} className="text-slate-300" />
-              <p className="mt-4 font-semibold text-slate-700">Aún no hay platos registrados</p>
-              <p className="mt-2 text-xs text-slate-500">Cuando agregues productos, aparecerán aquí.</p>
-              <Link to="/admin/products" className="mt-5 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-bold text-white">Ir al menú</Link>
+            <div className="mt-5 flex flex-col items-center rounded-xl bg-slate-50 px-5 py-12 text-center"><PackageOpen size={29} className="text-slate-300"/><p className="mt-3 text-sm font-semibold text-slate-600">Sin productos vendidos todavía</p><p className="mt-2 text-xs text-slate-400">Aparecerán aquí después de los primeros pedidos.</p></div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><AlertTriangle size={21} className="text-amber-600"/> Estado de inventario</h2><p className="mt-1 text-xs text-slate-500">Ingredientes que requieren reposición</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{state.inventory?.length ?? "—"} registrados</span></div>
+          {lowStock.length ? (
+            <div className="mt-5 divide-y divide-slate-100">
+              {lowStock.slice(0,5).map((item) => <div key={item.ingredientId} className="flex items-center gap-4 py-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-700"><AlertTriangle size={17}/></span>
+                <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-900">{item.ingredientName}</p><p className="mt-1 text-xs text-slate-500">Stock: {item.currentStock} · Mínimo: {item.minimumStock}</p></div>
+                <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">{item.status}</span>
+              </div>)}
             </div>
+          ) : (
+            <div className="mt-5 flex flex-col items-center rounded-xl bg-slate-50 px-5 py-12 text-center"><CircleCheck size={30} className="text-emerald-500"/><p className="mt-3 text-sm font-semibold text-slate-700">{state.inventory ? "No hay alertas de inventario" : "Inventario no disponible"}</p><p className="mt-2 text-xs text-slate-400">{state.inventory ? "Las existencias están por encima del mínimo configurado." : "Consulta de inventario pendiente."}</p></div>
           )}
         </div>
       </div>
+
+      <footer className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs text-slate-500">
+        <p><CircleCheck size={15} className="mr-2 inline text-emerald-500"/> Panel conectado a Restaurant Central · AWS</p>
+        <p>{state.users == null ? "Usuarios: —" : `Usuarios: ${state.users}`} · {state.categories == null ? "Categorías: —" : `Categorías: ${state.categories}`}</p>
+      </footer>
     </section>
   );
 }
