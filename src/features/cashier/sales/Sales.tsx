@@ -455,6 +455,10 @@ export default function Sales() {
             <Button color="red" disabled={!shift} leftSection={<Plus size={17}/>}
               onClick={() => { setMovementType("CASH_IN"); setMovementModal(true); }}>Añadir movimiento</Button>
           </Group>
+          <Alert color="blue" icon={<ShieldCheck size={17}/>} mb="md">
+            Los movimientos son ajustes de efectivo (ingresos o retiros), no cobros de clientes.
+            Para cobrar con Yape, Plin, transferencia o efectivo utiliza la pestaña «Cobros».
+          </Alert>
           <EntryList entries={shift?.entries || []}/>
         </Paper>
       </Stack>}
@@ -596,8 +600,9 @@ export default function Sales() {
           value={movementReason} onChange={(e) => setMovementReason(e.currentTarget.value)}
           classNames={field} placeholder="Motivo del ingreso o retiro"/>
         <Alert color="blue" icon={movementType === "CASH_IN" ? <ArrowDownLeft size={17}/> : <ArrowUpRight size={17}/>}>
-          {movementType === "CASH_IN" ? "Este importe aumentará el efectivo esperado." :
-            "Este importe disminuirá el efectivo esperado. No puedes retirar más que el saldo disponible."}
+          {movementType === "CASH_IN"
+            ? "Ingreso adicional de efectivo: aumenta el saldo esperado. Para registrar una compra utiliza «Cobros», no este movimiento."
+            : "Retiro de efectivo: disminuye el saldo esperado. No puedes retirar más que el saldo disponible."}
         </Alert>
         <Group justify="flex-end">
           <Button variant="default" disabled={movement.isPending} onClick={() => setMovementModal(false)}>Cancelar</Button>
