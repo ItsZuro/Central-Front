@@ -123,6 +123,11 @@ export interface OrderResponse {
 
   total: number;
 
+  // Resumen de cobros calculado por Spring Boot; no inferirlo del estado de cocina.
+  paymentStatus?: "PENDING" | "CONFIRMED" | "FAILED" | "REFUNDED" | "CANCELLED";
+  paymentMethodCode?: string | null;
+  canCustomerCancel?: boolean;
+
   details: OrderDetailInOrderResponse[];
   timelineSteps: OrderStatusStepResponse[];
 }
