@@ -4,7 +4,7 @@ import { paymentService } from "@/core/services/payment/payment.service";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { useCartStore } from "@/core/stores/cart/cart.store";
 import type { OrderRequest } from "@/core/types/order/order.model";
-import { ChevronLeft, LockKeyhole, MapPin, Store, Truck } from "lucide-react";
+import { ChevronLeft, LockKeyhole, MapPin, Store } from "lucide-react";
 import { Alert, Badge, Box, Group, Paper, SegmentedControl, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import type { ApiResponse } from "@/core/types/base/api-response";
@@ -456,7 +456,7 @@ export default function CheckoutPage() {
                     mt="lg"
                     radius="md"
                     icon={<MapPin size={19} />}
-                    title={pickupConfigured ? "Punto de recogida de pruebas" : "Punto de recogida en preparación"}
+                    title="Punto de recogida"
                     styles={{
                       root: { background: "#29242a", border: "1px solid #453940" },
                       icon: { color: "#d6b178" },
@@ -464,31 +464,24 @@ export default function CheckoutPage() {
                       message: { color: "#c9bbc4", lineHeight: 1.6 },
                     }}
                   >
-                    {pickupStore
-                      ? (
-                        <Text size="sm" c="#c9bbc4">
-                          <Text span fw={750} c="#fff">{pickupStore.name}</Text> — {pickupStore.address}.
-                          Para esta demostración la dirección exacta sigue pendiente;
-                          no acudas a ella a recoger pedidos.
+                    {pickupStore ? (
+                      <Text size="sm" c="#c9bbc4">
+                        <Text span fw={750} c="#fff">
+                          {pickupStore.name.replace(/\s*\((?:pruebas?|tests?|demo)\)/gi, "").trim()}
                         </Text>
-                      )
-                      : (
-                        <Text size="sm" c="#c9bbc4">
-                          {isClient
-                            ? "Todavía no se ha configurado una sucursal de recogida en el sistema."
-                            : "Los detalles de la sucursal aparecerán cuando inicies sesión."}
-                        </Text>
-                      )}
+                        {pickupStore.address && !/prueba|test|demo|pendiente|fictici/i.test(pickupStore.address)
+                          ? <> — {pickupStore.address}.</>
+                          : "."}
+                        {" "}Podrás consultar el estado de preparación en Mis pedidos.
+                      </Text>
+                    ) : (
+                      <Text size="sm" c="#c9bbc4">
+                        {isClient
+                          ? "No hay una sede de recogida disponible en este momento."
+                          : "Recoge tu pedido en el restaurante. Podrás consultar los datos de la sede al iniciar sesión."}
+                      </Text>
+                    )}
                   </Alert>
-                )}
-
-                {!canQuoteDelivery && isClient && (
-                  <Group gap="xs" mt="md" wrap="nowrap">
-                    <Truck size={16} color="#b4a5af" style={{ flexShrink: 0 }} />
-                    <Text c="#b4a5af" size="xs" lh={1.5}>
-                      Delivery estará disponible cuando la sucursal tenga coordenadas reales.
-                    </Text>
-                  </Group>
                 )}
               </Box>
             </Paper>
