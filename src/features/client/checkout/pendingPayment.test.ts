@@ -15,7 +15,7 @@ const cartItem = {
   finalPrice: 3.50,
   selectedExtras: [],
   notes: "",
-} as CartItem;
+} as unknown as CartItem;
 
 const order = {
   id: 51,
