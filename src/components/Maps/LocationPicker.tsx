@@ -98,12 +98,14 @@ interface LocationPickerProps {
   onLocationSelect: (address: string, lat: number, lng: number) => void;
   initialLat?: number;
   initialLng?: number;
+  preferGeolocation?: boolean;
 }
 
 export default function LocationPicker({
   onLocationSelect,
   initialLat,
   initialLng,
+  preferGeolocation = true,
 }: LocationPickerProps) {
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
@@ -118,7 +120,7 @@ export default function LocationPicker({
   useEffect(() => {
     if (initialLat && initialLng) {
       setPosition({ lat: initialLat, lng: initialLng });
-    } else if (navigator.geolocation) {
+    } else if (preferGeolocation && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setPosition({
@@ -131,7 +133,7 @@ export default function LocationPicker({
         }
       );
     }
-  }, [initialLat, initialLng]);
+  }, [initialLat, initialLng, preferGeolocation]);
 
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map);
@@ -143,7 +145,10 @@ export default function LocationPicker({
 
   const fetchAddress = async (lat: number, lng: number) => {
     setLoadingAddress(true);
-    if (!window.google || !window.google.maps) return;
+    if (!window.google || !window.google.maps) {
+      setLoadingAddress(false);
+      return;
+    }
 
     const geocoder = new window.google.maps.Geocoder();
 
