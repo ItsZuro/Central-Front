@@ -2,6 +2,7 @@ import { api } from "@/core/api/api";
 import type { ApiResponse } from "@/core/types/base/api-response";
 import type {
   AssignDriverRequest,
+  DriverOptionResponse,
   OrderRequest,
   OrderResponse,
   KitchenOrderResponse,
@@ -11,6 +12,13 @@ import type {
 } from "@/core/types/order/order.model"; 
 
 export const orderService = {
+  async getEligibleDrivers(): Promise<ApiResponse<DriverOptionResponse[]>> {
+    const response = await api.get<ApiResponse<DriverOptionResponse[]>>(
+      "/orders/delivery/eligible-drivers"
+    );
+    return response.data;
+  },
+
   async getKitchenBoard(): Promise<ApiResponse<KitchenOrderResponse[]>> {
     const res = await api.get<ApiResponse<KitchenOrderResponse[]>>("/orders/kitchen");
     return res.data;
