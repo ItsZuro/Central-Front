@@ -11,7 +11,7 @@ function handler(event) {
     uri.indexOf("/assets/") !== 0 &&
     uri.indexOf("/images/") !== 0 &&
     uri.indexOf("/fonts/") !== 0 &&
-    !/\\.[^/]+$/.test(uri)
+    !/\.[^/]+$/.test(uri)
   ) {
     request.uri = "/index.html";
   }
