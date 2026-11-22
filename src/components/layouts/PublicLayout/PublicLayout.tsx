@@ -12,7 +12,7 @@ export default function PublicLayout() {
   // Cada trabajador autenticado vuelve a su propio panel incluso si escribe
   // manualmente /, /menu, /checkout, /profile o /my-orders.
   if (accessToken && user) {
-    const priority = ["ROLE_ADMIN", "ROLE_MANAGER", "ROLE_CHEF", "ROLE_CASHIER", "ROLE_WAITER", "ROLE_SUPPLIER"];
+    const priority = ["ROLE_ADMIN", "ROLE_MANAGER", "ROLE_CHEF", "ROLE_CASHIER", "ROLE_WAITER", "ROLE_DRIVER", "ROLE_SUPPLIER"];
     const staffRole = priority.find((role) => user.roles?.includes(role));
     if (staffRole) return <Navigate to={roleDefaultRoutes[staffRole]} replace />;
   }
