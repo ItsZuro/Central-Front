@@ -8,7 +8,7 @@ interface StoreMapPreviewProps {
 }
 
 /** Preview no interactiva: la dirección se modifica desde el selector principal. */
-export default function StoreMapPreview({ lat, lng, height = 165 }: StoreMapPreviewProps) {
+export default function StoreMapPreview({ lat, lng, height = 250 }: StoreMapPreviewProps) {
   const { isLoaded, loadError } = useJsApiLoader({
     id: "google-map-script",
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
