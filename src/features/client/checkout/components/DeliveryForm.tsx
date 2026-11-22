@@ -1,6 +1,7 @@
 import { Map, MapPin, User } from "lucide-react";
 
 interface DeliveryFormProps {
+  pickupMode?: boolean;
   address: string;
   coordinates: { lat: number; lng: number } | null;
   references: string;
@@ -15,6 +16,7 @@ interface DeliveryFormProps {
 }
 
 export default function DeliveryForm({
+  pickupMode = false,
   address,
   coordinates,
   references,
@@ -29,8 +31,8 @@ export default function DeliveryForm({
 }: DeliveryFormProps) {
   return (
     <div className="bg-neutral-800 p-6 rounded-2xl border border-neutral-700 shadow-lg space-y-6 animate-fade-in-up">
-      {/* SECCIÓN 1: UBICACIÓN */}
-      <div>
+      {/* La recogida no necesita una ruta ni una dirección de reparto. */}
+      {!pickupMode && <div>
         <div className="flex items-center gap-3 mb-4 border-b border-neutral-700 pb-2">
           <MapPin className="text-red-500" />
           <h2 className="text-lg font-bold text-white">Ubicación de Entrega</h2>
@@ -86,14 +88,14 @@ export default function DeliveryForm({
             />
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* SECCIÓN 2: DATOS DE CONTACTO */}
       <div>
         <div className="flex items-center gap-3 mb-4 border-b border-neutral-700 pb-2">
           <User className="text-red-500" />
           <h2 className="text-lg font-bold text-white">
-            Datos de quien recibe
+            {pickupMode ? "Datos de quien recogerá" : "Datos de quien recibe"}
           </h2>
         </div>
 
