@@ -328,7 +328,7 @@ export default function PurchaseHistory() {
             onChange={(value) => {
               setFilter(value || "all");
               setPage(1);
-            }
+            }}
             data={[
               { value: "all", label: "Todos" },
               { value: "active", label: "En curso" },
