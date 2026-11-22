@@ -10,6 +10,7 @@ import CategoriesAdmin from "@/features/admin/categories/Categories";
 import ReportsAdmin from "@/features/admin/reports/Reports";
 import UsersAdmin from "@/features/admin/users/Users";
 import CustomersAdmin from "@/features/admin/customers/Customers";
+import DeliveriesAdmin from "@/features/admin/deliveries/Deliveries";
 import Login from "@/features/auth/login/Login";
 import Signup from "@/features/auth/signup/Signup";
 import SalesCashier from "@/features/cashier/sales/Sales";
@@ -121,6 +122,7 @@ export default function AppRoutes() {
           <Route path="/admin/profile" element={<AdminProfile />} />
           <Route path="/admin/stores" element={<StoresAdmin />} />
           <Route path="/admin/customers" element={<CustomersAdmin />} />
+          <Route path="/admin/deliveries" element={<DeliveriesAdmin />} />
         </Route>
       </Route>
 
