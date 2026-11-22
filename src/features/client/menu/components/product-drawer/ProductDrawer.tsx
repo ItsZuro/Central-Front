@@ -5,6 +5,7 @@ import { api } from "@/core/api/api";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import type { ApiResponse } from "@/core/types/base/api-response";
 import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 
 interface ProductDrawerProps {
   dish: ProductResponse | null;
@@ -29,6 +30,7 @@ export default function ProductDrawer({
   const [reviewText, setReviewText] = useState("");
   const [rating, setRating] = useState(5);
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewEligibility, setReviewEligibility] = useState<"checking" | "eligible" | "ineligible" | "error">("checking");
   const [reviewRefresh, setReviewRefresh] = useState(0);
   useEffect(() => {
     if (!isOpen || !dish) return;
@@ -39,8 +41,18 @@ export default function ProductDrawer({
     return () => { active = false; };
   }, [dish, isOpen, reviewRefresh]);
 
+  useEffect(() => {
+    if (!isOpen || !dish || !isClient) return;
+    let active = true;
+    setReviewEligibility("checking");
+    api.get<ApiResponse<boolean>>(`reviews/product/${dish.id}/eligibility`)
+      .then(({ data }) => { if (active) setReviewEligibility(data.data ? "eligible" : "ineligible"); })
+      .catch(() => { if (active) setReviewEligibility("error"); });
+    return () => { active = false; };
+  }, [dish, isOpen, isClient, reviewRefresh]);
+
   async function submitReview() {
-    if (!dish || !isClient) return;
+    if (!dish || !isClient || reviewEligibility !== "eligible") return;
     setSubmittingReview(true);
     setReviewError("");
     try {
@@ -51,8 +63,9 @@ export default function ProductDrawer({
       });
       setReviewText("");
       setReviewRefresh((value) => value + 1);
+      toast.success("Gracias por compartir tu calificación.");
     } catch {
-      setReviewError("No se pudo enviar la reseña. Comprueba si ya calificaste el producto.");
+      setReviewError("No se pudo publicar. Comprueba que el pedido esté completado o entregado y que no hayas reseñado antes.");
     } finally {
       setSubmittingReview(false);
     }
@@ -253,20 +266,54 @@ export default function ProductDrawer({
               </div>
             ))}
             {isClient && (
-              <div className="border-t border-neutral-700 pt-3 space-y-2">
-                <label className="block text-sm text-neutral-300">Tu calificación
-                  <select aria-label="Calificación" className="mt-1 w-full rounded bg-neutral-900 p-2 text-white" value={rating}
-                    onChange={(event) => setRating(Number(event.target.value))}>
-                    {[5,4,3,2,1].map((value) => <option value={value} key={value}>{value} estrella(s)</option>)}
-                  </select>
-                </label>
-                <textarea aria-label="Comentario del producto" maxLength={2000} value={reviewText}
-                  onChange={(event) => setReviewText(event.target.value)}
-                  placeholder="Comparte tu experiencia" className="w-full rounded bg-neutral-900 p-3 text-white" />
-                <button type="button" disabled={submittingReview} onClick={() => void submitReview()}
-                  className="rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-                  {submittingReview ? "Enviando..." : "Publicar reseña"}
-                </button>
+              <div className="border-t border-neutral-700 pt-4 space-y-4">
+                {reviewEligibility === "checking" && <p className="text-sm text-neutral-400">Verificando si puedes calificar este producto…</p>}
+                {reviewEligibility === "ineligible" && (
+                  <div className="rounded-lg border border-neutral-600 bg-neutral-900/50 p-3 text-sm text-neutral-300">
+                    Puedes dejar una reseña de forma opcional después de comprar este plato y recibir tu pedido. Cada cliente puede calificar un producto una vez.
+                  </div>
+                )}
+                {reviewEligibility === "error" && (
+                  <p role="alert" className="text-sm text-amber-400">No pudimos verificar la compra. Inténtalo nuevamente al abrir este producto.</p>
+                )}
+                {reviewEligibility === "eligible" && (
+                  <>
+                    <div>
+                      <p className="mb-2 text-sm font-medium text-neutral-200">¿Qué te pareció este plato?</p>
+                      <div className="flex items-center gap-2" role="group" aria-label="Calificación de 1 a 5 estrellas">
+                        {[1,2,3,4,5].map((value) => (
+                          <button
+                            key={value}
+                            type="button"
+                            title={value + " estrella(s)"}
+                            aria-label={value + " estrella(s)"}
+                            aria-pressed={rating === value}
+                            onClick={() => setRating(value)}
+                            className="rounded-lg p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+                          >
+                            <Star size={27} className={value <= rating ? "fill-amber-400 text-amber-400" : "text-neutral-500 hover:text-amber-300"} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <label htmlFor="review-comment" className="block text-sm text-neutral-300">
+                      Comentario (opcional)
+                    </label>
+                    <textarea
+                      id="review-comment"
+                      maxLength={2000}
+                      value={reviewText}
+                      onChange={(event) => setReviewText(event.target.value)}
+                      placeholder="Cuéntanos tu experiencia con este plato"
+                      rows={3}
+                      className="w-full rounded-lg border border-neutral-700 bg-neutral-900 p-3 text-white outline-none focus:border-red-500"
+                    />
+                    <button type="button" disabled={submittingReview} onClick={() => void submitReview()}
+                      className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">
+                      {submittingReview ? "Publicando…" : "Publicar reseña"}
+                    </button>
+                  </>
+                )}
               </div>
             )}
             {reviewError && <p role="alert" className="text-sm text-red-400">{reviewError}</p>}
