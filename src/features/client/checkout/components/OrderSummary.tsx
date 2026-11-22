@@ -12,6 +12,7 @@ interface OrderSummaryProps {
   total: number;
   isLoading: boolean;
   isUserLoggedIn: boolean;
+  pendingCardOrderId?: number | null;
   onRemoveItem: (id: string) => void;
   onProcessOrder: () => void;
 }
@@ -27,6 +28,7 @@ export default function OrderSummary({
   total,
   isLoading,
   isUserLoggedIn,
+  pendingCardOrderId = null,
   onRemoveItem,
   onProcessOrder,
 }: OrderSummaryProps) {
@@ -135,9 +137,16 @@ export default function OrderSummary({
           {!isCheckoutReady
             ? "Preparando pedido..."
             : isUserLoggedIn
-              ? "Confirmar pedido"
+              ? (pendingCardOrderId ? "Volver a abrir Niubiz" : "Confirmar pedido")
               : "Continuar e iniciar sesión"}
         </Button>
+        {pendingCardOrderId != null && (
+          <Text size="xs" c="#dfc4a0" lh={1.6} mt="sm">
+            El pedido #{pendingCardOrderId} ya está registrado. Puedes reabrir la pasarela
+            sin crear otro pedido. Si llegaste a enviar los datos de tu tarjeta, revisa
+            primero Mis pedidos para evitar un cobro duplicado.
+          </Text>
+        )}
         <Divider color="#383239" my="md" />
         <Group align="flex-start" gap="xs" wrap="nowrap">
           <ShieldCheck size={17} color="#c6a67c" style={{ flexShrink: 0 }} />
