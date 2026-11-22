@@ -5,7 +5,7 @@ import { orderService } from "@/core/services/order/order.service";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { useCartStore } from "@/core/stores/cart/cart.store";
 import type { OrderRequest } from "@/core/types/order/order.model";
-import { ChevronLeft, LockKeyhole, MapPin, Store } from "lucide-react";
+import { ChevronLeft, LockKeyhole, MapPin, Store, TriangleAlert } from "lucide-react";
 import { Alert, Badge, Box, Group, Paper, SegmentedControl, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import type { ApiResponse } from "@/core/types/base/api-response";
@@ -99,8 +99,10 @@ export default function CheckoutPage() {
   const deliveryStore = [...(checkoutConfig.data?.stores ?? [])]
     .filter((store) => Number.isFinite(store.latitude) && Number.isFinite(store.longitude))
     .sort((a, b) => a.id - b.id)[0];
-  const canQuoteDelivery = Boolean(deliveryStore &&
-    checkoutConfig.data?.types.some((type) => type.code === "DELIVERY"));
+  const deliveryTypeConfigured = Boolean(checkoutConfig.data?.types.some((type) => type.code === "DELIVERY"));
+  const canQuoteDelivery = Boolean(deliveryStore && deliveryTypeConfigured);
+  const deliveryReady = canQuoteDelivery && Boolean(coordinates && deliveryQuoteQuery.data) &&
+    !deliveryQuoteQuery.isFetching && !deliveryQuoteQuery.isError;
   const pickupConfigured = Boolean(
     pickupStore &&
     checkoutConfig.data?.types.some((type) => type.code === "TAKE_AWAY") &&
@@ -179,10 +181,8 @@ export default function CheckoutPage() {
       toast.error("Por favor selecciona una ubicación en el mapa");
       return;
     }
-    if (isClient && (isCheckingDelivery || !deliveryQuote)) {
-      toast.error("La dirección debe estar dentro de la cobertura verificada para confirmar.");
-      return;
-    }
+    // Marcar una ubicación no significa confirmar que haya cobertura:
+    // permitimos cerrar el mapa y comprobamos la ruta antes de crear el pedido.
     setIsMapOpen(false);
   };
 
@@ -191,6 +191,9 @@ export default function CheckoutPage() {
     if (isLoading) return;
     if (orderMode === "delivery" && (!address.trim() || !coordinates)) {
       return toast.error("Selecciona tu dirección en el mapa para recibir el pedido.");
+    }
+    if (isClient && orderMode === "delivery" && !canQuoteDelivery) {
+      return toast.error("Delivery todavía no está habilitado: falta configurar la ubicación de la sucursal en Lima.");
     }
     if (isClient && orderMode === "delivery" && (!deliveryQuote || isCheckingDelivery)) {
       return toast.error("No se ha podido verificar la cobertura de tu dirección.");
@@ -502,7 +505,7 @@ export default function CheckoutPage() {
                   onChange={(value) => setOrderMode(value as OrderMode)}
                   data={[
                     { value: "pickup", label: "Recoger en tienda" },
-                    { value: "delivery", label: "Delivery", disabled: !canQuoteDelivery },
+                    { value: "delivery", label: "Delivery" },
                   ]}
                   classNames={{
                     root: styles.modeRoot,
@@ -511,6 +514,46 @@ export default function CheckoutPage() {
                   }}
                 />
 
+                {orderMode === "delivery" && checkoutConfig.isPending && (
+                  <Alert
+                    mt="lg"
+                    color="gray"
+                    variant="light"
+                    radius="md"
+                    title="Consultando disponibilidad de delivery"
+                  >
+                    Estamos comprobando la configuración de reparto.
+                  </Alert>
+                )}
+                {orderMode === "delivery" && checkoutConfig.isError && (
+                  <Alert
+                    mt="lg"
+                    color="red"
+                    variant="light"
+                    radius="md"
+                    title="No se pudo consultar la configuración"
+                  >
+                    Recarga la página para volver a comprobar la disponibilidad.
+                  </Alert>
+                )}
+                {orderMode === "delivery" && checkoutConfig.isSuccess && !canQuoteDelivery && (
+                  <Alert
+                    mt="lg"
+                    radius="md"
+                    icon={<TriangleAlert size={19} />}
+                    title="Delivery pendiente de habilitación"
+                    styles={{
+                      root: { background: "#302820", border: "1px solid #65503b" },
+                      icon: { color: "#efc184" },
+                      title: { color: "#ffe0ae", fontWeight: 800 },
+                      message: { color: "#e3cfb7", lineHeight: 1.6 },
+                    }}
+                  >
+                    {deliveryTypeConfigured
+                      ? "Puedes indicar tu dirección, pero todavía falta guardar la ubicación de la sucursal de Lima para verificar la cobertura y confirmar el envío."
+                      : "Puedes preparar tu dirección, pero el restaurante aún no tiene configurada la modalidad de delivery para confirmar pedidos."}
+                  </Alert>
+                )}
                 {orderMode === "pickup" && (
                   <Alert
                     mt="lg"
@@ -635,8 +678,19 @@ export default function CheckoutPage() {
               pickupMode={orderMode === "pickup"}
               isCheckoutReady={Boolean(
                 !isClient || (!checkoutConfig.isLoading && !checkoutConfig.isError &&
-                (orderMode === "pickup" ? pickupConfigured : canQuoteDelivery))
+                (orderMode === "pickup" ? pickupConfigured : deliveryReady))
               )}
+              disabledReason={orderMode === "delivery" && isClient
+                ? !canQuoteDelivery
+                  ? "Delivery pendiente de configuración"
+                  : !coordinates
+                    ? "Selecciona tu dirección para continuar"
+                    : isCheckingDelivery
+                      ? "Verificando cobertura..."
+                      : !deliveryQuote
+                        ? "Dirección sin cobertura verificada"
+                        : null
+                : null}
               items={items}
               subtotal={subtotal}
               deliveryFee={deliveryFee}
