@@ -160,3 +160,42 @@
 .dateInput {
   color-scheme: dark;
 }
+
+
+/* Mantine se mantiene en modo claro global para el sitio público.
+   Estos selectores limitan la apariencia oscura al área de personal. */
+.root :global(.mantine-Tabs-tab) {
+  color: #d6d1da;
+}
+.root :global(.mantine-Tabs-tab[data-active]) {
+  color: #fff;
+}
+.root :global(.mantine-SegmentedControl-root) {
+  background: #2b2930;
+  border: 1px solid #504952;
+}
+.root :global(.mantine-SegmentedControl-label) {
+  color: #eeeaf0;
+}
+.root :global(.mantine-SegmentedControl-indicator) {
+  background: #ab2939;
+}
+.root :global(.mantine-Button-root[data-variant="default"]) {
+  background: #2f2c34;
+  border-color: #524b55;
+  color: #f4f1f4;
+}
+.root :global(.mantine-Pagination-control) {
+  background: #2f2c34;
+  border-color: #524b55;
+  color: #f4f1f4;
+}
+.boardCell {
+  width: 100%;
+  display: block;
+  text-align: left;
+}
+.actionCard {
+  display: block;
+  border-radius: 12px;
+}
