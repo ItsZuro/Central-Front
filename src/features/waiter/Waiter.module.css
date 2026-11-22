@@ -266,3 +266,41 @@
   background: #4a3d49 !important;
   color: #fff !important;
 }
+
+
+/* Portal modals do not inherit .root variables. Avoid black on dark alerts. */
+.modalContent {
+  --mantine-color-text: #f7f2f6;
+  --mantine-color-dimmed: #bbb3c0;
+  --mantine-color-default: #34303a;
+  --mantine-color-default-border: #615666;
+}
+.modalContent :global(.mantine-Alert-message),
+.modalContent :global(.mantine-Alert-title),
+.modalContent :global(.mantine-Alert-label) {
+  color: #f5f0f6 !important;
+}
+.modalContent :global(.mantine-Input-description) {
+  color: #c0b7c4;
+}
+.modalContent :global(.mantine-Input-input) {
+  color-scheme: dark;
+}
+.darkSegmented {
+  background: #29252f;
+  border: 1px solid #534a56;
+  color: #fff;
+}
+.darkSegmented :global(.mantine-SegmentedControl-label) {
+  color: #f5edf4;
+}
+.darkSegmented :global(.mantine-SegmentedControl-label:hover) {
+  color: #fff;
+  background: #503741;
+}
+.darkSegmented :global(.mantine-SegmentedControl-indicator) {
+  background: #ad2d42;
+}
+.darkSegmented :global(.mantine-SegmentedControl-label[data-active]) {
+  color: #fff;
+}
