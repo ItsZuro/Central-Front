@@ -89,8 +89,8 @@ export default function AppRoutes() {
 
       {/* ==================== PRIVADAS ==================== */}
 
-      {/* ADMIN */}
-      <Route element={<PrivateRoute allowedRoles={["ROLE_ADMIN"]} />}>
+      {/* Administración: ADMIN y MANAGER pueden consultar catálogo/reportes; solo ADMIN gestiona cuentas. */}
+      <Route element={<PrivateRoute allowedRoles={["ROLE_ADMIN", "ROLE_MANAGER"]} />}>
         <Route element={<AdminLayout />}>
           <Route
             path="/admin/dashboard"
@@ -108,10 +108,9 @@ export default function AppRoutes() {
             path="/admin/reports"
             element={<ReportsAdmin />}
           />
-          <Route
-            path="/admin/users"
-            element={<UsersAdmin />}
-          />
+          <Route element={<PrivateRoute allowedRoles={["ROLE_ADMIN"]} />}>
+            <Route path="/admin/users" element={<UsersAdmin />} />
+          </Route>
           <Route path="/admin/profile" element={<AdminProfile />} />
         </Route>
       </Route>
