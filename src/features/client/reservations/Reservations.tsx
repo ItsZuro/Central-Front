@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import axios from "axios";
 import "dayjs/locale/es";
 import { DatePickerInput } from "@mantine/dates";
 import calendarStyles from "./ReservationCalendar.module.css";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ActionIcon, Alert, Avatar, Badge, Box, Button, Container, Divider, Grid, Group,
   Image, Modal, NumberInput, Paper, SimpleGrid, Skeleton, Stack,
@@ -30,6 +30,14 @@ type Reservation = {
   status: Status;
 };
 type Page<T> = { content: T[] };
+type ReservationDraft = {
+  date: string;
+  guests: number;
+  time: string;
+  tableId: number | null;
+  name: string;
+  phone: string;
+};
 
 const statusNames: Record<Status, string> = {
   PENDING: "Pendiente de confirmación",
@@ -84,15 +92,19 @@ function getError(e: unknown) {
 }
 
 export default function Reservations() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const draft = (location.state as { reservationDraft?: Partial<ReservationDraft> } | null)?.reservationDraft;
+  const restoreRef = useRef(draft);
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.accessToken);
   const isClient = Boolean(token && user?.roles?.includes("ROLE_CLIENT"));
-  const [date, setDate] = useState("");
-  const [guests, setGuests] = useState(2);
-  const [time, setTime] = useState("");
-  const [tableId, setTableId] = useState<number | null>(null);
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [date, setDate] = useState(draft?.date || "");
+  const [guests, setGuests] = useState(draft?.guests || 2);
+  const [time, setTime] = useState(draft?.time || "");
+  const [tableId, setTableId] = useState<number | null>(draft?.tableId || null);
+  const [name, setName] = useState(draft?.name || "");
+  const [phone, setPhone] = useState(draft?.phone || "");
   const [availability, setAvailability] = useState<AvailableTable[]>([]);
   const [bookings, setBookings] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(false);
@@ -129,7 +141,16 @@ export default function Reservations() {
     }).then(({ data }) => {
       if (active) {
         if (!data.success) throw new Error(data.message);
-        setAvailability(data.data || []);
+        const available = data.data || [];
+        setAvailability(available);
+        const saved = restoreRef.current;
+        restoreRef.current = undefined;
+        if (saved && saved.date === date && saved.guests === guests &&
+            available.some((table) => table.id === saved.tableId &&
+              table.availableTimes?.includes(saved.time || ""))) {
+          setTime(saved.time || "");
+          setTableId(saved.tableId || null);
+        }
       }
     }).catch((e: unknown) => {
       if (active) setError(getError(e));
@@ -177,19 +198,19 @@ export default function Reservations() {
     [availability, time]
   );
   const selectedTable = tables.find((table) => table.id === tableId);
-  const canSubmit = isClient && date >= today && Boolean(time) &&
+  const canSubmit = date >= today && Boolean(time) &&
     Boolean(selectedTable) && name.trim().length > 0 &&
     phone.trim().length >= 7 && phone.trim().length <= 15 &&
     !loading && !sending;
+  const loginState = {
+    from: "/reservations",
+    reservationDraft: { date, guests, time, tableId, name, phone } satisfies ReservationDraft,
+  };
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setCreated(null);
-    if (!isClient) {
-      setError("Necesitas una cuenta de cliente para realizar una reserva.");
-      return;
-    }
     if (!date || date < today || !time || date + "T" + time < earliestSlot ||
         !tableId || !tables.some((table) => table.id === tableId)) {
       setError("Elige una fecha, un horario y una mesa disponibles.");
@@ -200,6 +221,14 @@ export default function Reservations() {
       return;
     }
 
+    if (!isClient) {
+      if (token && user) {
+        setError("Para reservar necesitas una cuenta con rol de cliente.");
+      } else {
+        navigate("/auth/login", { state: loginState });
+      }
+      return;
+    }
     setSending(true);
     try {
       const response = await api.post<Reservation>("reservations/me", {
@@ -298,16 +327,16 @@ export default function Reservations() {
             radius="lg"
             mb="lg"
             icon={<CircleAlert size={20}/>}
-            title="Inicia sesión para solicitar una mesa"
+            title="Elige la mesa antes de iniciar sesión"
             styles={{ root: { backgroundColor: "#302a22", border: "1px solid #675134" }, title: { color: "#fde68a" }, message: { color: "#e1d5c0" } }}
           >
             <Group justify="space-between" align="center" gap="sm" mt={7}>
               <Text size="sm" c="#e1d5c0">
-                Puedes consultar los horarios sin iniciar sesión. Para registrar una reserva necesitas una cuenta de cliente.
+                Puedes escoger la fecha, el horario y la mesa como invitado. Te pediremos iniciar sesión cuando confirmes la solicitud.
               </Text>
               <Group gap="xs">
-                <Button component={Link} to="/auth/login" size="xs" color="red" leftSection={<LogIn size={15}/>}>Iniciar sesión</Button>
-                <Button component={Link} to="/auth/signup" size="xs" variant="outline" color="yellow">Crear cuenta</Button>
+                <Button component={Link} to="/auth/login" state={loginState} size="xs" color="red" leftSection={<LogIn size={15}/>}>Iniciar sesión</Button>
+                <Button component={Link} to="/auth/signup" state={loginState} size="xs" variant="outline" color="yellow">Crear cuenta</Button>
               </Group>
             </Group>
           </Alert>
@@ -586,7 +615,7 @@ export default function Reservations() {
                   disabled={!canSubmit}
                   rightSection={<ArrowRight size={20}/>}
                 >
-                  Solicitar reserva
+                  {isClient ? "Solicitar reserva" : "Continuar e iniciar sesión"}
                 </Button>
                 <Text c="#9da0ab" size="xs" ta="center" lh={1.7} mt="sm">
                   La disponibilidad se verifica nuevamente al enviar la solicitud.
