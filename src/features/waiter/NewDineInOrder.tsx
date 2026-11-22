@@ -2,21 +2,35 @@ import { api } from "@/core/api/api";
 import { orderService } from "@/core/services/order/order.service";
 import type { ApiResponse } from "@/core/types/base/api-response";
 import type { OrderRequest } from "@/core/types/order/order.model";
+import {
+  Alert, Badge, Box, Button, Divider, Group, Loader, Modal, NumberInput,
+  Paper, ScrollArea, Select, SimpleGrid, Stack, Text, TextInput, Title,
+} from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, X } from "lucide-react";
-import { useState } from "react";
+import { AlertCircle, Plus, Search, ShoppingBag, Users } from "lucide-react";
+import { useState, type FormEvent } from "react";
 import { toast } from "react-toastify";
+import styles from "./Waiter.module.css";
 
 type Catalog = { id: number; code: string };
 type Customer = { id: number; fullName: string; username: string; email: string };
 type Product = { id: number; name: string; price: number; active: boolean };
 type Table = { id: number; code: string; alias?: string | null; status: string; capacity: number };
 
-type NewDineInOrderProps = {
+type Props = {
   onCreated: () => void;
   defaultTableId?: number;
   label?: string;
   variant?: "primary" | "outline";
+};
+
+const currency = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" });
+const field = { input: styles.fieldInput, label: styles.fieldLabel };
+const selectClassNames = {
+  input: styles.fieldInput,
+  label: styles.fieldLabel,
+  dropdown: styles.dropdown,
+  option: styles.option,
 };
 
 export default function NewDineInOrder({
@@ -24,18 +38,18 @@ export default function NewDineInOrder({
   defaultTableId,
   label = "Pedido en mesa",
   variant = "primary",
-}: NewDineInOrderProps) {
+}: Props) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [opened, setOpened] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState("");
-  const [tableId, setTableId] = useState("");
+  const [tableId, setTableId] = useState<string | null>(null);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
 
   const config = useQuery({
     queryKey: ["waiter", "pos-config"],
-    enabled: open,
+    enabled: opened,
     queryFn: async () => {
       const [types, statuses, tables, products] = await Promise.all([
         api.get<ApiResponse<Catalog[]>>("/order-types"),
@@ -53,12 +67,12 @@ export default function NewDineInOrder({
         products: products.data.data.filter((item) => item.active),
       };
     },
-    staleTime: 10000,
+    staleTime: 10_000,
   });
 
   const customers = useQuery({
     queryKey: ["waiter", "customer-search", customerSearch.trim()],
-    enabled: open && customerSearch.trim().length >= 2,
+    enabled: opened && customerSearch.trim().length >= 2,
     queryFn: async () => {
       const response = await api.get<ApiResponse<Customer[]>>("/customers/search", {
         params: { query: customerSearch.trim() },
@@ -68,158 +82,248 @@ export default function NewDineInOrder({
     },
   });
 
+  const clearForm = () => {
+    setCustomerId(null);
+    setSelectedCustomer("");
+    setCustomerSearch("");
+    setTableId(null);
+    setQuantities({});
+  };
+
   const createOrder = useMutation({
-    mutationFn: (request: OrderRequest) => orderService.createPosSale(request),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["waiter"] });
+    mutationFn: async (request: OrderRequest) => {
+      const response = await orderService.createPosSale(request);
+      if (!response.success) throw new Error(response.message);
+      return response;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["waiter"] });
       toast.success("Pedido presencial registrado correctamente.");
-      setOpen(false);
-      setCustomerId(null);
-      setSelectedCustomer("");
-      setCustomerSearch("");
-      setTableId("");
-      setQuantities({});
+      setOpened(false);
+      clearForm();
       onCreated();
     },
   });
 
-  const dineInType = config.data?.types.find((t) => t.code === "DINE_IN");
-  const initialStatus = config.data?.statuses.find((s) => s.code === "PENDING_CONFIRMATION") ||
-    config.data?.statuses.find((s) => s.code === "PENDING");
-  const selectedItems = config.data?.products.filter((p) => (quantities[p.id] || 0) > 0) ?? [];
+  const dineInType = config.data?.types.find((item) => item.code === "DINE_IN");
+  const initialStatus = config.data?.statuses.find((item) => item.code === "PENDING_CONFIRMATION") ||
+    config.data?.statuses.find((item) => item.code === "PENDING");
+  const selectedItems = config.data?.products.filter((product) => (quantities[product.id] || 0) > 0) ?? [];
+  const totalPreview = selectedItems.reduce((sum, product) => sum + product.price * quantities[product.id], 0);
   const canSubmit = Boolean(
     customerId && tableId && dineInType && initialStatus && selectedItems.length > 0 && !createOrder.isPending
   );
 
-  function submit(event: React.FormEvent<HTMLFormElement>) {
+  const open = () => {
+    clearForm();
+    setTableId(defaultTableId != null ? String(defaultTableId) : null);
+    setOpened(true);
+    void config.refetch();
+  };
+
+  const close = () => {
+    if (!createOrder.isPending) {
+      setOpened(false);
+      clearForm();
+    }
+  };
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!canSubmit || !customerId || !dineInType || !initialStatus) return;
+    if (!canSubmit || !customerId || !tableId || !dineInType || !initialStatus) return;
     createOrder.mutate({
       customerId,
       tableId: Number(tableId),
       typeId: dineInType.id,
       statusId: initialStatus.id,
-      details: selectedItems.map((item) => ({
-        productId: item.id,
-        quantity: quantities[item.id],
+      details: selectedItems.map((product) => ({
+        productId: product.id,
+        quantity: quantities[product.id],
       })),
     });
-  }
+  };
 
   return (
     <>
-      <button type="button" onClick={() => { setTableId(defaultTableId != null ? String(defaultTableId) : ""); setOpen(true); void config.refetch(); }}
-        className={variant === "primary"
-          ? "inline-flex items-center justify-center gap-2 rounded-xl bg-red-700 px-4 py-3 text-sm font-bold text-white hover:bg-red-600"
-          : "inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-zinc-100 hover:bg-white/10"}>
-        <Plus size={17} /> {label}
-      </button>
+      <Button
+        fullWidth={variant === "outline"}
+        variant={variant === "primary" ? "filled" : "light"}
+        color="red"
+        size={variant === "primary" ? "md" : "sm"}
+        leftSection={<Plus size={17} />}
+        onClick={open}
+      >
+        {label}
+      </Button>
+      <Modal
+        opened={opened}
+        onClose={close}
+        closeOnEscape={!createOrder.isPending}
+        closeOnClickOutside={!createOrder.isPending}
+        title="Nuevo pedido presencial"
+        size="lg"
+        centered
+        classNames={{
+          content: styles.modalContent,
+          header: styles.modalHeader,
+          title: styles.modalTitle,
+          close: styles.modalClose,
+        }}
+      >
+        <form onSubmit={submit}>
+          <Stack gap="lg" pb="sm">
+            <Text size="sm" c="#bcb7c1">
+              Selecciona un cliente registrado, una mesa libre y los platos. El pago se gestiona en caja.
+            </Text>
+            {config.isPending ? (
+              <Group justify="center" py="xl">
+                <Loader color="red" size="sm" />
+                <Text c="#c5bdc8" size="sm">Cargando catálogo del restaurante...</Text>
+              </Group>
+            ) : config.isError ? (
+              <Alert icon={<AlertCircle size={18} />} color="red" title="No se pudo cargar el catálogo">
+                <Button size="xs" variant="light" color="red" mt="sm" onClick={() => void config.refetch()}>
+                  Reintentar
+                </Button>
+              </Alert>
+            ) : (
+              <>
+                <Stack gap="xs">
+                  <TextInput
+                    label="Buscar cliente"
+                    placeholder="Nombre, usuario o correo"
+                    leftSection={<Search size={16} />}
+                    value={customerSearch}
+                    onChange={(event) => {
+                      setCustomerSearch(event.currentTarget.value);
+                      setCustomerId(null);
+                      setSelectedCustomer("");
+                    }}
+                    classNames={field}
+                    autoComplete="off"
+                    required
+                  />
+                  {selectedCustomer && (
+                    <Badge color="green" variant="light" size="lg" style={{ alignSelf: "flex-start" }}>
+                      Cliente: {selectedCustomer}
+                    </Badge>
+                  )}
+                  {!customerId && customerSearch.trim().length >= 2 && (
+                    <Paper bg="#2b2930" withBorder p="xs" radius="md" style={{ borderColor: "#47424c" }}>
+                      {customers.isPending ? <Text size="xs" c="#bcb5c0" p="xs">Buscando clientes...</Text> :
+                        customers.isError ? <Text size="xs" c="#ff9797" p="xs">No fue posible buscar clientes.</Text> :
+                          (customers.data ?? []).length === 0 ?
+                            <Text size="xs" c="#bcb5c0" p="xs">No se encontraron clientes registrados.</Text> :
+                            <ScrollArea.Autosize mah={170}>
+                              <Stack gap={4}>
+                                {customers.data?.map((customer) => (
+                                  <Button
+                                    key={customer.id}
+                                    variant="subtle"
+                                    color="gray"
+                                    justify="flex-start"
+                                    fullWidth
+                                    onClick={() => {
+                                      setCustomerId(customer.id);
+                                      setSelectedCustomer(customer.fullName || customer.username || customer.email);
+                                    }}
+                                  >
+                                    {customer.fullName || customer.username} · {customer.email}
+                                  </Button>
+                                ))}
+                              </Stack>
+                            </ScrollArea.Autosize>}
+                    </Paper>
+                  )}
+                </Stack>
+                <Select
+                  label="Mesa disponible"
+                  placeholder="Selecciona una mesa libre"
+                  data={(config.data?.tables || [])
+                    .filter((table) => table.status === "FREE")
+                    .map((table) => ({
+                      value: String(table.id),
+                      label: "Mesa " + (table.alias || table.code || table.id) + " · " + table.capacity + " personas",
+                    }))}
+                  value={tableId}
+                  onChange={setTableId}
+                  leftSection={<Users size={16} />}
+                  classNames={selectClassNames}
+                  comboboxProps={{ withinPortal: false }}
+                  searchable
+                  required
+                />
+                {!config.data?.tables.some((table) => table.status === "FREE") && (
+                  <Alert color="yellow" icon={<AlertCircle size={16} />}>
+                    No hay mesas libres en este momento.
+                  </Alert>
+                )}
 
-      {open && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/75 p-4" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="waiter-order-title"
-            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/15 bg-[#202024] p-6 text-white shadow-2xl">
-            <div className="mb-5 flex items-start justify-between gap-3">
-              <div>
-                <h2 id="waiter-order-title" className="text-xl font-bold">Nuevo pedido presencial</h2>
-                <p className="mt-1 text-sm text-zinc-400">Selecciona un cliente registrado, una mesa libre y los platos.</p>
-              </div>
-              <button type="button" aria-label="Cerrar" onClick={() => setOpen(false)}
-                disabled={createOrder.isPending} className="rounded-lg p-2 hover:bg-white/10 disabled:opacity-50">
-                <X size={20} />
-              </button>
-            </div>
-
-            {config.isPending ? <p className="text-sm text-zinc-400">Cargando datos del restaurante...</p> :
-              config.isError ? <p role="alert" className="text-sm text-red-300">No se pudo cargar el catálogo. Cierra y vuelve a intentar.</p> :
-                <form onSubmit={submit} className="space-y-5">
-                  <div>
-                    <label htmlFor="waiter-customer" className="mb-2 block text-sm font-semibold">Cliente</label>
-                    <input id="waiter-customer" value={customerSearch}
-                      onChange={(event) => {
-                        setCustomerSearch(event.target.value);
-                        setCustomerId(null);
-                        setSelectedCustomer("");
-                      }}
-                      placeholder="Buscar por nombre o correo" autoComplete="off"
-                      className="w-full rounded-lg border border-white/20 bg-zinc-900 p-3 text-sm outline-none focus:border-red-500" />
-                    {selectedCustomer && <p className="mt-2 text-xs text-emerald-300">Seleccionado: {selectedCustomer}</p>}
-                    {!customerId && customerSearch.trim().length >= 2 && (
-                      <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-white/10">
-                        {customers.isPending ? <p className="p-3 text-xs text-zinc-400">Buscando clientes...</p> :
-                          customers.isError ? <p role="alert" className="p-3 text-xs text-red-300">No se pudo realizar la búsqueda.</p> :
-                            (customers.data ?? []).length === 0 ? <p className="p-3 text-xs text-zinc-400">No se encontraron clientes.</p> :
-                              customers.data?.map((customer) => (
-                                <button key={customer.id} type="button"
-                                  onClick={() => { setCustomerId(customer.id); setSelectedCustomer(customer.fullName || customer.username || customer.email); }}
-                                  className="block w-full border-b border-white/5 px-3 py-2 text-left text-sm hover:bg-white/10">
-                                  {customer.fullName || customer.username} <span className="text-xs text-zinc-400">{customer.email}</span>
-                                </button>
-                              ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label htmlFor="waiter-table" className="mb-2 block text-sm font-semibold">Mesa disponible</label>
-                    <select id="waiter-table" required value={tableId} onChange={(event) => setTableId(event.target.value)}
-                      className="w-full rounded-lg border border-white/20 bg-zinc-900 p-3 text-sm">
-                      <option value="">Selecciona una mesa</option>
-                      {config.data?.tables.filter((table) => table.status === "FREE").map((table) => (
-                        <option key={table.id} value={table.id}>
-                          Mesa {table.alias || table.code || table.id} — {table.capacity} personas
-                        </option>
-                      ))}
-                    </select>
-                    {!config.data?.tables.some((table) => table.status === "FREE") &&
-                      <p className="mt-2 text-xs text-amber-300">No hay mesas libres actualmente.</p>}
-                  </div>
-
-                  <fieldset>
-                    <legend className="mb-3 text-sm font-semibold">Productos</legend>
-                    <div className="max-h-64 space-y-2 overflow-y-auto">
+                <Box>
+                  <Group justify="space-between" mb="sm">
+                    <Text size="sm" fw={700} c="white">Productos del pedido</Text>
+                    <Badge variant="light" color="red">{selectedItems.length} seleccionados</Badge>
+                  </Group>
+                  <ScrollArea.Autosize mah={300} type="auto" offsetScrollbars>
+                    <Stack gap="xs" pr="xs">
                       {config.data?.products.map((product) => (
-                        <div key={product.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 px-3 py-2">
-                          <div>
-                            <div className="text-sm text-zinc-100">{product.name}</div>
-                            <div className="text-xs text-zinc-400">
-                              {new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(product.price)}
-                            </div>
-                          </div>
-                          <label className="flex items-center gap-2 text-xs text-zinc-400">
-                            Cantidad
-                            <input type="number" min={0} max={99} step={1} aria-label={"Cantidad de " + product.name}
+                        <Paper key={product.id} className={styles.productLine}>
+                          <Group align="center" justify="space-between" wrap="nowrap" gap="xs">
+                            <Box style={{ flex: 1, minWidth: 0 }}>
+                              <Text size="sm" fw={600} c="white">{product.name}</Text>
+                              <Text size="xs" c="#a9a4ae" mt={3}>{currency.format(product.price)}</Text>
+                            </Box>
+                            <NumberInput
+                              aria-label={"Cantidad de " + product.name}
                               value={quantities[product.id] || 0}
-                              onChange={(event) => {
-                                const value = Number(event.target.value);
-                                setQuantities((previous) => ({ ...previous,
-                                  [product.id]: Number.isFinite(value) ? Math.max(0, Math.min(99, Math.floor(value))) : 0,
-                                }));
+                              onChange={(value) => {
+                                const quantity = typeof value === "number" && Number.isFinite(value)
+                                  ? Math.min(99, Math.max(0, Math.floor(value))) : 0;
+                                setQuantities((previous) => ({ ...previous, [product.id]: quantity }));
                               }}
-                              className="w-16 rounded-md border border-white/20 bg-zinc-900 p-2 text-center text-white" />
-                          </label>
-                        </div>
+                              min={0}
+                              max={99}
+                              allowDecimal={false}
+                              w={94}
+                              classNames={field}
+                            />
+                          </Group>
+                        </Paper>
                       ))}
-                    </div>
-                  </fieldset>
-
-                  {createOrder.isError &&
-                    <p role="alert" className="rounded-lg border border-red-600/40 bg-red-950/40 p-3 text-sm text-red-200">
-                      No se pudo registrar el pedido. Verifica el cliente, la mesa y la disponibilidad de los productos.
-                    </p>}
-                  <div className="flex justify-end gap-3">
-                    <button type="button" onClick={() => setOpen(false)} disabled={createOrder.isPending}
-                      className="rounded-lg border border-white/20 px-4 py-3 text-sm disabled:opacity-50">Cancelar</button>
-                    <button type="submit" disabled={!canSubmit}
-                      className="rounded-lg bg-red-700 px-5 py-3 text-sm font-bold disabled:opacity-40">
-                      {createOrder.isPending ? "Registrando..." : "Registrar pedido"}
-                    </button>
-                  </div>
-                  <p className="text-xs text-zinc-400">El cobro se realiza por caja. Registrar el pedido no confirma un pago.</p>
-                </form>}
-          </div>
-        </div>
-      )}
+                      {!config.data?.products.length && (
+                        <Text size="sm" c="dimmed">No hay productos activos disponibles.</Text>
+                      )}
+                    </Stack>
+                  </ScrollArea.Autosize>
+                </Box>
+                <Divider color="#454049" />
+                <Group justify="space-between" align="center">
+                  <Box>
+                    <Text size="xs" c="#aca6b0">Subtotal referencial</Text>
+                    <Title order={3} c="white">{currency.format(totalPreview)}</Title>
+                  </Box>
+                  <ShoppingBag color="#ef6a75" size={24} />
+                </Group>
+                <Text size="xs" c="#9e9aa4">
+                  El total definitivo, incluidos los impuestos y extras aplicables, lo calcula el backend.
+                  Registrar este pedido no confirma un pago.
+                </Text>
+                {createOrder.isError && (
+                  <Alert color="red" icon={<AlertCircle size={17} />} title="No se pudo registrar el pedido">
+                    Comprueba que el cliente, la mesa y los productos estén disponibles.
+                  </Alert>
+                )}
+                <SimpleGrid cols={2} spacing="sm">
+                  <Button variant="default" onClick={close} disabled={createOrder.isPending}>Cancelar</Button>
+                  <Button color="red" type="submit" loading={createOrder.isPending} disabled={!canSubmit}>
+                    Registrar pedido
+                  </Button>
+                </SimpleGrid>
+              </>
+            )}
+          </Stack>
+        </form>
+      </Modal>
     </>
   );
 }
