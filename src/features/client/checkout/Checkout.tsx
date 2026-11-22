@@ -9,11 +9,10 @@ import { Alert, Box, Group, SegmentedControl, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import type { ApiResponse } from "@/core/types/base/api-response";
 import { useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import DeliveryForm from "./components/DeliveryForm";
 import EmptyCartView from "./components/EmptyCartView";
-import LoginPrompt from "./components/LoginPrompt";
 import MapModal from "./components/MapModal";
 import OrderSummary from "./components/OrderSummary";
 import PaymentSelector from "./components/PaymentSelector";
@@ -25,12 +24,27 @@ type CatalogRef = { id: number; code: string };
 type StoreRef = { id: number; name: string; address: string; latitude: number | null; longitude: number | null };
 type PaymentRef = CatalogRef & { provider: string };
 
+type CheckoutDraft = {
+  orderMode: OrderMode;
+  paymentMethod: "card" | "cash" | "yape";
+  address: string;
+  coordinates: { lat: number; lng: number } | null;
+  references: string;
+  phone: string;
+  docType: string;
+  docNumber: string;
+};
+type CheckoutRouteState = { checkoutDraft?: Partial<CheckoutDraft> };
+
 export default function CheckoutPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const draft = (location.state as CheckoutRouteState | null)?.checkoutDraft;
 
   // Stores Globales
   const { items, getTotalPrice, removeItem, clearCart } = useCartStore();
-  const { user } = useAuthStore();
+  const { user, accessToken } = useAuthStore();
+  const isClient = Boolean(accessToken && user?.roles.includes("ROLE_CLIENT"));
 
   // Hooks Personalizados
   const { isScriptLoaded, scriptError } = useNiubizScript();
@@ -38,8 +52,8 @@ export default function CheckoutPage() {
   const { isPending: isCreatingOrder } = createOrderMutation;
 
   // Elegir recogida permite probar pedidos sin configurar una ruta ficticia.
-  const [orderMode, setOrderMode] = useState<OrderMode>("pickup");
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "cash" | "yape">("cash");
+  const [orderMode, setOrderMode] = useState<OrderMode>(draft?.orderMode || "pickup");
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "cash" | "yape">(draft?.paymentMethod || "cash");
 
   // Identificadores reales del backend: nunca asumir que los IDs coinciden con
   // el orden de inserción en PostgreSQL.
@@ -63,6 +77,7 @@ export default function CheckoutPage() {
       };
     },
     staleTime: 60_000,
+    enabled: isClient,
   });
   const pickupStore = checkoutConfig.data?.stores.find((store) =>
     store.name.toLocaleLowerCase("es-PE").includes("central") && store.name.toLocaleLowerCase("es-PE").includes("ica")
@@ -78,20 +93,20 @@ export default function CheckoutPage() {
   );
 
   // Datos de Entrega
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState(draft?.address || "");
   const [coordinates, setCoordinates] = useState<{
     lat: number;
     lng: number;
-  } | null>(null);
-  const [references, setReferences] = useState("");
+  } | null>(draft?.coordinates || null);
+  const [references, setReferences] = useState(draft?.references || "");
   const [deliveryQuote, setDeliveryQuote] = useState<{ distanceKm: number; durationMinutes: number } | null>(null);
   const [isCheckingDelivery, setIsCheckingDelivery] = useState(false);
   const deliveryQuoteSequence = useRef(0);
 
   // Datos de Contacto e Identidad
-  const [phone, setPhone] = useState("");
-  const [docType, setDocType] = useState("DNI");
-  const [docNumber, setDocNumber] = useState("");
+  const [phone, setPhone] = useState(draft?.phone || "");
+  const [docType, setDocType] = useState(draft?.docType || "DNI");
+  const [docNumber, setDocNumber] = useState(draft?.docNumber || "");
 
   // Estados de Interfaz
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -105,6 +120,14 @@ export default function CheckoutPage() {
   // Coincide con el cálculo de IGV configurado en Spring Boot (18%).
   const total = Number((subtotal * 1.18 + deliveryFee).toFixed(2));
   const isLoading = isCreatingOrder || isProcessingPayment;
+
+  // El borrador se conserva en el estado de React Router durante la autenticación.
+  const loginState = {
+    from: "/checkout",
+    checkoutDraft: {
+      orderMode, paymentMethod, address, coordinates, references, phone, docType, docNumber,
+    } satisfies CheckoutDraft,
+  };
 
   // --- HANDLERS DEL MAPA ---
   const handleLocationSelect = (
