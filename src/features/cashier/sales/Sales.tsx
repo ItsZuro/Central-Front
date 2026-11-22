@@ -113,7 +113,7 @@ function downloadCsv(shift: CashShift) {
   const quote = (item: string | number | null) => {
     const s = item == null ? "" : String(item);
     const safe = /^[=+@\t\r]/.test(s) || /^-\D/.test(s) ? "'" + s : s;
-    return '"' + safe.replaceAll('"', '""') + '"';
+    return '"' + safe.replace(/"/g, '""') + '"';
   };
   const csv = "\ufeff" + rows.map((r) => r.map(quote).join(";")).join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
