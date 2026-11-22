@@ -1,12 +1,45 @@
-import { useAuthStore } from "@/core/stores/auth/auth.store";
-import { useState } from "react";
-import axios from "axios";
 import { api } from "@/core/api/api";
+import { orderService } from "@/core/services/order/order.service";
+import { useAuthStore } from "@/core/stores/auth/auth.store";
 import type { ApiResponse } from "@/core/types/base/api-response";
 import type { UserResponse } from "@/core/types/user/user.model";
+import {
+  Alert,
+  Avatar,
+  Badge,
+  Box,
+  Button,
+  Divider,
+  Group,
+  Modal,
+  Paper,
+  PasswordInput,
+  SimpleGrid,
+  Stack,
+  Text,
+  TextInput,
+} from "@mantine/core";
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import {
+  ArrowRight,
+  CalendarDays,
+  Camera,
+  CheckCircle2,
+  ClipboardList,
+  LockKeyhole,
+  Mail,
+  Pencil,
+  Phone,
+  ShieldCheck,
+  ShoppingBag,
+  UserRound,
+} from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useForm } from "react-hook-form";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-
+import styles from "./Profile.module.css";
 
 type ProfileFormData = {
   firstName: string;
@@ -16,15 +49,27 @@ type ProfileFormData = {
   username: string;
 };
 
-export default function Profile() {
-  const { user, accessToken, sessionId, setAuth } = useAuthStore();
-  const [isEditing, setIsEditing] = useState(false);
+const inputClasses = { input: styles.input, label: styles.label };
+const panelStyle = { backgroundColor: "#1e1d20", border: "1px solid #373338" };
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<ProfileFormData>({
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    return error.response?.data?.message || fallback;
+  }
+  return error instanceof Error ? error.message : fallback;
+}
+
+export default function Profile() {
+  const { user, accessToken, sessionId, setAuth, logout } = useAuthStore();
+  const navigate = useNavigate();
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [passwordModalOpened, setPasswordModalOpened] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [password, setPassword] = useState({ current: "", next: "", confirmation: "" });
+
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ProfileFormData>({
     defaultValues: {
       firstName: user?.firstName || "",
       lastName: user?.lastName || "",
@@ -34,364 +79,463 @@ export default function Profile() {
     },
   });
 
-  const onSubmit = async (data: ProfileFormData) => {
+  useEffect(() => {
+    if (user) {
+      reset({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        username: user.username || "",
+      });
+    }
+  }, [user, reset]);
+
+  const ordersQuery = useQuery({
+    queryKey: ["profile", "my-orders", user?.id],
+    queryFn: () => orderService.getMyOrders("es"),
+    enabled: Boolean(user && accessToken),
+    staleTime: 60_000,
+  });
+
+  if (!user || !accessToken) {
+    return <Navigate to="/auth/login" replace state={{ from: "/profile" }} />;
+  }
+
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username;
+  const initials = [user.firstName?.[0], user.lastName?.[0]]
+    .filter(Boolean)
+    .join("")
+    .toUpperCase() || user.username.slice(0, 2).toUpperCase();
+  const ordersAvailable = ordersQuery.data?.success && Array.isArray(ordersQuery.data.data);
+  const orders = ordersAvailable ? ordersQuery.data!.data : [];
+  const orderCount = ordersQuery.isPending ? "…" : ordersAvailable ? String(orders.length) : "—";
+  const activeCount = ordersQuery.isPending
+    ? "…"
+    : ordersAvailable
+      ? String(orders.filter((order) => !["COMPLETED", "DELIVERED", "CANCELLED", "FAILED"].includes(order.statusCode)).length)
+      : "—";
+
+  const saveProfile = async (data: ProfileFormData) => {
     try {
-      const result = await api.put<ApiResponse<{ user: UserResponse; token: string | null }>>(
-        "users/update-profile", data
+      const response = await api.put<ApiResponse<{ user: UserResponse; token: string | null }>>(
+        "users/update-profile",
+        data,
       );
-      if (!result.data.success || !result.data.data?.user) {
-        throw new Error(result.data.message || "No se pudo actualizar el perfil");
+      if (!response.data.success || !response.data.data?.user) {
+        throw new Error(response.data.message || "No se pudo actualizar el perfil");
       }
-      const updated = result.data.data;
       setAuth({
-        user: updated.user,
-        accessToken: updated.token || accessToken || "",
+        user: response.data.data.user,
+        accessToken: response.data.data.token || accessToken,
         sessionId: sessionId || "",
       });
-      toast.success("Perfil actualizado correctamente");
       setIsEditing(false);
+      toast.success("Tus datos se actualizaron correctamente");
     } catch (error) {
-      const message = axios.isAxiosError(error)
-        ? (error.response?.data?.message || "No se pudo actualizar el perfil")
-        : (error instanceof Error ? error.message : "No se pudo actualizar el perfil");
-      toast.error(message);
+      toast.error(getErrorMessage(error, "No se pudo actualizar tu perfil"));
     }
   };
 
-  if (!user) return <div className="text-white p-10">Cargando perfil...</div>;
+  const cancelEdit = () => {
+    reset({
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      username: user.username || "",
+    });
+    setIsEditing(false);
+  };
 
-  const getInitials = () => {
-    const first = user.firstName?.charAt(0).toUpperCase() || "";
-    const last = user.lastName?.charAt(0).toUpperCase() || "";
-    return `${first}${last}`;
+  const uploadPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Selecciona una imagen JPG, PNG o WebP.");
+      if (uploadRef.current) uploadRef.current.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("La imagen debe pesar menos de 5 MB.");
+      if (uploadRef.current) uploadRef.current.value = "";
+      return;
+    }
+    const body = new FormData();
+    body.append("file", file);
+    setUploadingPhoto(true);
+    try {
+      const response = await api.put<ApiResponse<UserResponse>>("users/profile-image", body, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.message || "No se pudo subir la imagen");
+      }
+      setAuth({ user: response.data.data, accessToken, sessionId: sessionId || "" });
+      toast.success("Foto de perfil actualizada");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "No se pudo subir la foto de perfil"));
+    } finally {
+      setUploadingPhoto(false);
+      if (uploadRef.current) uploadRef.current.value = "";
+    }
+  };
+
+  const changePassword = async () => {
+    if (user.hasPassword && !password.current) {
+      toast.error("Ingresa tu contraseña actual.");
+      return;
+    }
+    if (password.next.length < 8) {
+      toast.error("La nueva contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+    if (password.next !== password.confirmation) {
+      toast.error("Las nuevas contraseñas no coinciden.");
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const response = await api.put<ApiResponse<null>>("users/change-password", {
+        currentPassword: user.hasPassword ? password.current : null,
+        newPassword: password.next,
+      });
+      if (!response.data.success) {
+        throw new Error(response.data.message || "No se pudo actualizar la contraseña");
+      }
+      setPassword({ current: "", next: "", confirmation: "" });
+      setPasswordModalOpened(false);
+      logout();
+      toast.success("Contraseña actualizada. Inicia sesión nuevamente.");
+      navigate("/auth/login", { replace: true });
+    } catch (error) {
+      toast.error(getErrorMessage(error, "No se pudo actualizar la contraseña"));
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white pt-24 pb-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8 animate-fade-in-down">
-          <h1 className="text-3xl font-bold text-white">Mi Perfil</h1>
-          <p className="text-gray-400 mt-1">
-            Gestiona tu información personal y seguridad
-          </p>
-        </div>
+    <section className={styles.page}>
+      <main className={styles.container}>
+        <Box mb="xl">
+          <Text className={styles.kicker} mb={8}>Restaurant Central · Tu espacio</Text>
+          <Text component="h1" className={styles.heading}>Mi cuenta</Text>
+          <Text className={styles.subtitle} mt="sm">
+            Tu perfil, tus pedidos y tus preferencias en un solo lugar.
+          </Text>
+        </Box>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1 space-y-6">
-            <div className="bg-[#1e1e1e] rounded-2xl p-6 border border-neutral-800 shadow-xl flex flex-col items-center text-center relative overflow-hidden transition-all hover:border-neutral-700">
-              <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-red-900/50 to-neutral-900/50 z-0"></div>
-
-              <div className="relative z-10 mt-8 mb-4">
-                <div className="w-32 h-32 rounded-full border-4 border-[#1e1e1e] shadow-2xl overflow-hidden bg-neutral-800 flex items-center justify-center text-4xl font-bold text-gray-400 relative group">
-                  {user.profileImageUrl ? (
-                    <img
-                      src={user.profileImageUrl}
-                      alt="Profile"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span>{getInitials()}</span>
-                  )}
-
-                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-8 w-8 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <h2 className="text-xl font-bold text-white relative z-10">
-                {user.firstName} {user.lastName}
-              </h2>
-              <p className="text-red-500 font-medium text-sm relative z-10 mb-4">
-                {user.email}
-              </p>
-
-              <div className="w-full border-t border-neutral-700 pt-4 mt-2 grid grid-cols-2 gap-4">
-                {/* <div className="text-center">
-                  <span className="block text-2xl font-bold text-white">
-                    12
-                  </span>{" "}
-                  <span className="text-xs text-gray-500 uppercase tracking-wider">
-                    Pedidos
-                  </span>
-                </div> */}
-                {/* <div className="text-center border-l border-neutral-700">
-                  <span className="block text-2xl font-bold text-yellow-500">
-                    {user.points || 0}
-                  </span>
-                  <span className="text-xs text-gray-500 uppercase tracking-wider">
-                    Puntos
-                  </span>
-                </div> */}
-              </div>
-            </div>
-
-            {/* <div className="bg-gradient-to-br from-red-900 to-red-800 rounded-2xl p-6 shadow-lg text-white relative overflow-hidden transform transition-transform hover:scale-[1.02]">
-              <svg
-                className="absolute -right-4 -bottom-4 w-32 h-32 text-red-700 opacity-50"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-              </svg>
-              <h3 className="text-lg font-bold mb-1 flex items-center gap-2">
-                Nivel: {user.roles?.includes("ROLE_VIP") ? "VIP" : "Explorador"}
-                {user.roles?.includes("ROLE_VIP") && (
-                  <span className="text-yellow-400">★</span>
-                )}
-              </h3>
-              <p className="text-red-100 text-sm mb-4 relative z-10">
-                Te faltan 250 puntos para el siguiente nivel.
-              </p>
-              <div className="w-full bg-red-950/50 rounded-full h-2 relative z-10">
-                <div
-                  className="bg-white h-2 rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
-                  style={{ width: "70%" }}
-                ></div>
-              </div>
-            </div> */}
-          </div>
-
-          <div className="lg:col-span-2 space-y-8">
-            <div className="bg-[#1e1e1e] rounded-2xl border border-neutral-800 shadow-xl overflow-hidden">
-              <div className="p-6 border-b border-neutral-800 flex justify-between items-center bg-[#252525]">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-red-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                    />
-                  </svg>
-                  Información Personal
-                </h3>
-                {!isEditing && (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="text-sm text-red-400 hover:text-red-300 font-medium transition-colors flex items-center gap-1"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                      />
-                    </svg>
-                    Editar datos
-                  </button>
-                )}
-              </div>
-
-              <div className="p-6">
-                <form
-                  onSubmit={handleSubmit(onSubmit)}
-                  className="space-y-6"
+        <div className={styles.hero}>
+          <div className={styles.heroContent}>
+            <Group gap="lg" align="center" wrap="nowrap" style={{ minWidth: 0 }}>
+              <div className={styles.avatarFrame}>
+                <Avatar src={user.profileImageUrl || undefined} size={92} radius={30} className={styles.avatar}>
+                  {initials}
+                </Avatar>
+                <input
+                  ref={uploadRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={uploadPhoto}
+                  aria-label="Seleccionar foto de perfil"
+                  hidden
+                />
+                <button
+                  type="button"
+                  className={styles.camera}
+                  disabled={uploadingPhoto}
+                  onClick={() => uploadRef.current?.click()}
+                  aria-label="Cambiar foto de perfil"
+                  title="Cambiar foto de perfil"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2">
-                        Usuario
-                      </label>
-                      <input
-                        type="text"
-                        disabled
-                        {...register("username")}
-                        className="w-full px-4 py-3 bg-[#121212] border border-neutral-700 rounded-lg text-gray-500 cursor-not-allowed focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        disabled
-                        {...register("email")}
-                        className="w-full px-4 py-3 bg-[#121212] border border-neutral-700 rounded-lg text-gray-500 cursor-not-allowed focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Nombre
-                      </label>
-                      <input
-                        type="text"
-                        disabled={!isEditing}
-                        {...register("firstName", {
-                          required: "El nombre es obligatorio",
-                        })}
-                        className={`w-full px-4 py-3 bg-[#121212] border rounded-lg text-white focus:outline-none transition-all ${
-                          isEditing
-                            ? "border-neutral-600 focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                            : "border-transparent px-0 bg-transparent"
-                        }`}
-                      />
-                      {errors.firstName && (
-                        <span className="text-red-500 text-xs">
-                          {errors.firstName.message}
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Apellido
-                      </label>
-                      <input
-                        type="text"
-                        disabled={!isEditing}
-                        {...register("lastName", {
-                          required: "El apellido es obligatorio",
-                        })}
-                        className={`w-full px-4 py-3 bg-[#121212] border rounded-lg text-white focus:outline-none transition-all ${
-                          isEditing
-                            ? "border-neutral-600 focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                            : "border-transparent px-0 bg-transparent"
-                        }`}
-                      />
-                      {errors.lastName && (
-                        <span className="text-red-500 text-xs">
-                          {errors.lastName.message}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Teléfono
-                      </label>
-                      <input
-                        type="tel"
-                        disabled={!isEditing}
-                        {...register("phone")}
-                        placeholder="Sin registrar"
-                        className={`w-full px-4 py-3 bg-[#121212] border rounded-lg text-white focus:outline-none transition-all ${
-                          isEditing
-                            ? "border-neutral-600 focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                            : "border-transparent px-0 bg-transparent"
-                        }`}
-                      />
-                    </div>
-                  </div>
-
-                  {isEditing && (
-                    <div className="flex justify-end gap-3 pt-4 border-t border-neutral-800 animate-fade-in">
-                      <button
-                        type="button"
-                        onClick={() => setIsEditing(false)}
-                        className="px-6 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-neutral-800 transition-colors"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="px-6 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors shadow-lg shadow-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <svg
-                              className="animate-spin h-4 w-4 text-white"
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                            >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              ></circle>
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                              ></path>
-                            </svg>
-                            Guardando...
-                          </>
-                        ) : (
-                          "Guardar Cambios"
-                        )}
-                      </button>
-                    </div>
-                  )}
-                </form>
-              </div>
-            </div>
-
-            <div className="bg-[#1e1e1e] rounded-2xl border border-neutral-800 shadow-xl overflow-hidden opacity-90 hover:opacity-100 transition-opacity">
-              <div className="p-6 border-b border-neutral-800 bg-[#252525]">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                    />
-                  </svg>
-                  Seguridad
-                </h3>
-              </div>
-              <div className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div>
-                  <p className="text-white font-medium">Contraseña</p>
-                  <p className="text-gray-500 text-sm mt-1">
-                    Se recomienda cambiarla cada 3 meses para mayor seguridad.
-                  </p>
-                </div>
-                <button className="px-4 py-2 border border-neutral-600 text-gray-300 rounded-lg hover:bg-neutral-800 hover:text-white transition-colors text-sm w-full sm:w-auto">
-                  Cambiar contraseña
+                  <Camera size={17} />
                 </button>
               </div>
-            </div>
+              <Box className={styles.identity}>
+                <Text className={styles.heroName}>{fullName}</Text>
+                <Text className={styles.heroEmail}>{user.email}</Text>
+                <Group gap="xs" mt="sm">
+                  <span className={styles.memberTag}>Cliente Central</span>
+                  {user.provider !== "LOCAL" && (
+                    <Badge color="gray" variant="light" radius="xl" size="sm">
+                      {user.provider}
+                    </Badge>
+                  )}
+                </Group>
+              </Box>
+            </Group>
+            <Button
+              radius="md"
+              variant="white"
+              color="dark"
+              leftSection={<Pencil size={16} />}
+              onClick={() => setIsEditing(true)}
+            >
+              Editar perfil
+            </Button>
           </div>
         </div>
-      </div>
-    </div>
+
+        <div className={styles.grid}>
+          <div className={styles.column}>
+            <Paper className={styles.panel} style={panelStyle}>
+              <div className={styles.panelBody}>
+                <Group justify="space-between" align="flex-start" mb="xl" gap="sm">
+                  <Group gap="sm" align="flex-start" wrap="nowrap">
+                    <div className={styles.iconBox}><UserRound size={21} /></div>
+                    <Box>
+                      <Text className={styles.panelTitle}>Información personal</Text>
+                      <Text className={styles.panelDesc}>Mantén tus datos al día para una mejor atención.</Text>
+                    </Box>
+                  </Group>
+                  {isEditing && <Badge radius="xl" color="red" variant="light">Editando</Badge>}
+                </Group>
+                <form onSubmit={handleSubmit(saveProfile)}>
+                  <Stack gap="lg">
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                      <TextInput
+                        label="Nombre"
+                        placeholder="Tu nombre"
+                        disabled={!isEditing}
+                        classNames={inputClasses}
+                        error={errors.firstName?.message}
+                        {...register("firstName", {
+                          required: "El nombre es obligatorio",
+                          maxLength: { value: 50, message: "Máximo 50 caracteres" },
+                        })}
+                      />
+                      <TextInput
+                        label="Apellido"
+                        placeholder="Tu apellido"
+                        disabled={!isEditing}
+                        classNames={inputClasses}
+                        error={errors.lastName?.message}
+                        {...register("lastName", {
+                          required: "El apellido es obligatorio",
+                          maxLength: { value: 50, message: "Máximo 50 caracteres" },
+                        })}
+                      />
+                      <TextInput
+                        label="Nombre de usuario"
+                        leftSection={<UserRound size={15} />}
+                        disabled
+                        classNames={inputClasses}
+                        {...register("username")}
+                      />
+                      <TextInput
+                        label="Correo electrónico"
+                        leftSection={<Mail size={15} />}
+                        disabled
+                        classNames={inputClasses}
+                        {...register("email")}
+                      />
+                    </SimpleGrid>
+                    <TextInput
+                      label="Teléfono de contacto"
+                      leftSection={<Phone size={16} />}
+                      placeholder="Añade un número de contacto"
+                      type="tel"
+                      disabled={!isEditing}
+                      classNames={inputClasses}
+                      {...register("phone")}
+                    />
+                    {isEditing && (
+                      <>
+                        <Divider color="#39323a" />
+                        <Group justify="flex-end" gap="sm">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            radius="md"
+                            className={styles.secondaryButton}
+                            onClick={cancelEdit}
+                            disabled={isSubmitting}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            type="submit"
+                            radius="md"
+                            loading={isSubmitting}
+                            className={styles.action}
+                            leftSection={<CheckCircle2 size={17} />}
+                          >
+                            Guardar cambios
+                          </Button>
+                        </Group>
+                      </>
+                    )}
+                  </Stack>
+                </form>
+              </div>
+            </Paper>
+
+            <Paper className={styles.panel} style={panelStyle}>
+              <div className={styles.panelBody}>
+                <Group gap="sm" align="flex-start" mb="lg" wrap="nowrap">
+                  <div className={styles.iconBox}><ShieldCheck size={20} /></div>
+                  <Box>
+                    <Text className={styles.panelTitle}>Seguridad de tu cuenta</Text>
+                    <Text className={styles.panelDesc}>Gestiona el acceso a tu cuenta Central.</Text>
+                  </Box>
+                </Group>
+                <div className={styles.status}>
+                  <Group justify="space-between" align="center" gap="md">
+                    <Group gap="sm" wrap="nowrap">
+                      <LockKeyhole size={20} color="#e7b887" />
+                      <Box>
+                        <Text fw={750} c="#f9f3f6" size="sm">Contraseña</Text>
+                        <Text c="#aaa1a9" size="xs" mt={4}>
+                          {user.hasPassword ? "Actualiza tu contraseña de acceso." : "Configura una contraseña para acceder también con correo."}
+                        </Text>
+                      </Box>
+                    </Group>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={styles.secondaryButton}
+                      radius="md"
+                      size="sm"
+                      onClick={() => setPasswordModalOpened(true)}
+                    >
+                      {user.hasPassword ? "Cambiar" : "Configurar"}
+                    </Button>
+                  </Group>
+                </div>
+              </div>
+            </Paper>
+          </div>
+
+          <div className={styles.column}>
+            <Paper className={styles.panel} style={panelStyle}>
+              <div className={styles.panelBody}>
+                <Group gap="sm" align="flex-start" mb="lg" wrap="nowrap">
+                  <div className={styles.iconBox}><ClipboardList size={20} /></div>
+                  <Box>
+                    <Text className={styles.panelTitle}>Tu actividad</Text>
+                    <Text className={styles.panelDesc}>Un vistazo a tus pedidos en Central.</Text>
+                  </Box>
+                </Group>
+                <SimpleGrid cols={2} spacing="sm">
+                  <div className={styles.metric}>
+                    <Text className={styles.metricTitle}>Pedidos realizados</Text>
+                    <Text className={styles.metricValue}>{orderCount}</Text>
+                    <Text className={styles.metricFoot}>En tu historial</Text>
+                  </div>
+                  <div className={styles.metric}>
+                    <Text className={styles.metricTitle}>En proceso</Text>
+                    <Text className={styles.metricValue}>{activeCount}</Text>
+                    <Text className={styles.metricFoot}>Pedidos activos</Text>
+                  </div>
+                </SimpleGrid>
+                {ordersQuery.isError && (
+                  <Alert mt="md" color="yellow" variant="light" radius="md">
+                    No pudimos consultar tu historial ahora. Puedes intentarlo desde Mis pedidos.
+                  </Alert>
+                )}
+                <Button
+                  component={Link}
+                  to="/my-orders"
+                  fullWidth
+                  mt="lg"
+                  variant="outline"
+                  radius="md"
+                  className={styles.secondaryButton}
+                  rightSection={<ArrowRight size={17} />}
+                >
+                  Consultar mis pedidos
+                </Button>
+              </div>
+            </Paper>
+
+            <Paper className={styles.panel} style={panelStyle}>
+              <div className={styles.panelBody}>
+                <Text className={styles.panelTitle}>Explora Central</Text>
+                <Text className={styles.panelDesc} mb="lg">Accede a lo que necesitas sin salir de tu cuenta.</Text>
+                <Stack gap="sm">
+                  <Link className={styles.quickLink} to="/my-orders">
+                    <span className={styles.quickLinkIcon}><ShoppingBag size={19} /></span>
+                    <span>
+                      <Text className={styles.quickLinkTitle}>Mis pedidos</Text>
+                      <Text className={styles.quickLinkDesc}>Consulta compras y su estado</Text>
+                    </span>
+                    <ArrowRight size={17} className={styles.quickArrow} />
+                  </Link>
+                  <Link className={styles.quickLink} to="/reservations">
+                    <span className={styles.quickLinkIcon}><CalendarDays size={19} /></span>
+                    <span>
+                      <Text className={styles.quickLinkTitle}>Reservar una mesa</Text>
+                      <Text className={styles.quickLinkDesc}>Elige la fecha y el horario</Text>
+                    </span>
+                    <ArrowRight size={17} className={styles.quickArrow} />
+                  </Link>
+                  <Link className={styles.quickLink} to="/menu">
+                    <span className={styles.quickLinkIcon}><ShoppingBag size={19} /></span>
+                    <span>
+                      <Text className={styles.quickLinkTitle}>Explorar el menú</Text>
+                      <Text className={styles.quickLinkDesc}>Descubre todos nuestros platos</Text>
+                    </span>
+                    <ArrowRight size={17} className={styles.quickArrow} />
+                  </Link>
+                </Stack>
+              </div>
+            </Paper>
+          </div>
+        </div>
+      </main>
+
+      <Modal
+        opened={passwordModalOpened}
+        onClose={() => { if (!changingPassword) setPasswordModalOpened(false); }}
+        title="Seguridad de tu cuenta"
+        centered
+        radius="lg"
+        styles={{
+          content: { background: "#211e23", border: "1px solid #4a3b44", color: "#fff" },
+          header: { background: "#211e23" },
+          title: { color: "#fff", fontWeight: 800 },
+          close: { color: "#fff" },
+        }}
+      >
+        <Stack gap="md">
+          <Text c="#bcb1ba" size="sm">
+            {user.hasPassword
+              ? "Confirma tu contraseña actual para establecer una nueva."
+              : "Establece una contraseña para iniciar sesión con tu correo."}
+          </Text>
+          {user.hasPassword && (
+            <PasswordInput
+              label="Contraseña actual"
+              value={password.current}
+              onChange={(event) => setPassword((value) => ({ ...value, current: event.currentTarget.value }))}
+              classNames={inputClasses}
+              required
+            />
+          )}
+          <PasswordInput
+            label="Nueva contraseña"
+            value={password.next}
+            onChange={(event) => setPassword((value) => ({ ...value, next: event.currentTarget.value }))}
+            classNames={inputClasses}
+            description="Mínimo 8 caracteres"
+            required
+          />
+          <PasswordInput
+            label="Confirmar contraseña"
+            value={password.confirmation}
+            onChange={(event) => setPassword((value) => ({ ...value, confirmation: event.currentTarget.value }))}
+            classNames={inputClasses}
+            required
+          />
+          <Button fullWidth className={styles.action} loading={changingPassword} onClick={changePassword}>
+            Guardar nueva contraseña
+          </Button>
+          <Text size="xs" c="#9e949d" ta="center">
+            Por seguridad, tendrás que iniciar sesión de nuevo después del cambio.
+          </Text>
+        </Stack>
+      </Modal>
+    </section>
   );
 }
