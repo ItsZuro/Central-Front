@@ -5,8 +5,7 @@ import {
   SimpleGrid, Skeleton, Stack, Text, ThemeIcon, Title,
 } from "@mantine/core";
 import {
-  ArrowDown, ArrowRight, ChefHat, Heart, MessageCircleMore,
-  ShoppingBag, Sparkles, UtensilsCrossed,
+  ArrowDown, ArrowRight, ChefHat, ShoppingBag, Sparkles, UtensilsCrossed,
 } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
@@ -282,69 +281,124 @@ export default function Home() {
         </Container>
       </Box>
 
-      <Box component="section" py={{ base: 65, sm: 90 }} bg="#18191e" style={{ borderTop: "1px solid #303139" }}>
+      {/* Un cierre editorial: un solo bloque con los pasos y una fotografía,
+          sin repetir la llamada a la acción roja del footer compartido. */}
+      <Box
+        component="section"
+        py={{ base: 78, sm: 114 }}
+        bg="#16171b"
+        style={{ borderTop: "1px solid #2e3037" }}
+      >
         <Container size="xl" px={{ base: "lg", sm: "xl" }}>
-          <Stack align="center" gap="sm" mb={36}>
-            <Text c="red.4" size="xs" fw={850} tt="uppercase" lts={2}>Tu próxima experiencia</Text>
-            <Title order={2} c="white" fw={850} ta="center" style={{ fontSize: "clamp(2rem, 3.8vw, 3rem)" }}>
-              Así de sencillo
-            </Title>
-            <Text c="#b4b6c0" size="sm" ta="center">Descubre los pasos de tu experiencia en Central.</Text>
-          </Stack>
-          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
-            {[
-              { number: "01", title: "Explora el menú", description: "Descubre los productos disponibles y consulta sus detalles.", icon: UtensilsCrossed },
-              { number: "02", title: "Personaliza", description: "Selecciona cantidades y adicionales cuando estén disponibles.", icon: Heart },
-              { number: "03", title: "Revisa tu pedido", description: "Confirma los artículos, la cobertura y el método de pago antes de finalizar.", icon: ShoppingBag },
-            ].map((step) => (
-              <Paper key={step.number} p="xl" radius="xl" style={{ backgroundColor: "#222329", border: "1px solid #3a3b42" }}>
-                <Group justify="space-between">
-                  <ThemeIcon size={50} radius="lg" color="red" variant="light"><step.icon size={24}/></ThemeIcon>
-                  <Text fw={900} c="#78404a" size="xl">{step.number}</Text>
-                </Group>
-                <Title order={3} c="white" fw={800} mt="lg" size="lg">{step.title}</Title>
-                <Text c="#acafb9" size="sm" mt="sm" lh={1.8}>{step.description}</Text>
-              </Paper>
-            ))}
-          </SimpleGrid>
-        </Container>
-      </Box>
-
-      <Box component="section" py={{ base: 65, sm: 90 }} bg="#121316">
-        <Container size="xl" px={{ base: "lg", sm: "xl" }}>
-          <Paper
-            radius="xl"
-            style={{
-              background: "linear-gradient(115deg, #8f1722, #b91c2a 58%, #dc3938)",
-              overflow: "hidden",
-              border: "1px solid rgba(255,255,255,.12)",
-            }}
+          <SimpleGrid
+            cols={{ base: 1, md: 2 }}
+            spacing={{ base: 42, md: 65 }}
+            style={{ alignItems: "center" }}
           >
-            <SimpleGrid cols={{ base: 1, md: 2 }} spacing={0} style={{ alignItems: "center" }}>
-              <Stack p={{ base: "xl", sm: 48 }} gap="md">
-                <Text fw={850} size="xs" tt="uppercase" c="#fecdd3" lts={2}>Restaurant Central</Text>
-                <Title order={2} c="white" fw={850} lh={1.15} style={{ fontSize: "clamp(2rem, 4vw, 3.2rem)" }}>
-                  ¿Listo para elegir tu próximo plato?
-                </Title>
-                <Text c="#ffe4e6" size="sm" lh={1.75}>
-                  Descubre la carta completa y encuentra algo para disfrutar hoy.
-                </Text>
-                <Group mt="sm">
-                  <Button component={Link} to="/menu" variant="white" color="red" rightSection={<ArrowRight size={17}/>}>Ver menú</Button>
-                  <Button component={Link} to="/contact" variant="subtle" color="gray"
-                    styles={{ root: { color: "white" } }}
-                    leftSection={<MessageCircleMore size={17}/>}>Contáctanos</Button>
-                </Group>
+            <Stack gap="lg" maw={520}>
+              <Text c="#fda4af" fw={800} tt="uppercase" lts={2.1} size="xs">
+                Tu experiencia, a tu ritmo
+              </Text>
+              <Title
+                order={2}
+                c="white"
+                lh={1.13}
+                fw={850}
+                style={{
+                  fontSize: "clamp(2.15rem, 4.2vw, 3.45rem)",
+                  letterSpacing: "-0.04em",
+                }}
+              >
+                Elige, disfruta y
+                <Text span inherit c="red.4"> comparte.</Text>
+              </Title>
+              <Text c="#b9bac5" size="md" lh={1.8}>
+                Una carta para descubrir sabores y armar tu pedido con calma.
+                Así funciona Restaurant Central.
+              </Text>
+              <Stack gap={0} mt="md">
+                {[
+                  {
+                    number: "01",
+                    title: "Encuentra algo que te guste",
+                    description: "Explora los platos de la carta y revisa sus ingredientes y precios.",
+                  },
+                  {
+                    number: "02",
+                    title: "Hazlo a tu gusto",
+                    description: "Elige la cantidad y añade extras cuando el plato los tenga.",
+                  },
+                  {
+                    number: "03",
+                    title: "Confirma tu pedido",
+                    description: "Comprueba el carrito, la cobertura y las opciones de pago disponibles.",
+                  },
+                ].map((step, index) => (
+                  <Group
+                    key={step.number}
+                    gap="lg"
+                    align="flex-start"
+                    wrap="nowrap"
+                    py="lg"
+                    style={{
+                      borderTop: "1px solid #36373e",
+                      borderBottom: index === 2 ? "1px solid #36373e" : undefined,
+                    }}
+                  >
+                    <Text
+                      c="#ee747e"
+                      fw={850}
+                      size="lg"
+                      style={{ fontVariantNumeric: "tabular-nums", minWidth: 31 }}
+                    >
+                      {step.number}
+                    </Text>
+                    <Box style={{ flex: 1 }}>
+                      <Text c="white" fw={750} size="md">{step.title}</Text>
+                      <Text c="#aeb0bb" size="sm" mt={6} lh={1.75}>
+                        {step.description}
+                      </Text>
+                    </Box>
+                  </Group>
+                ))}
               </Stack>
+            </Stack>
+
+            <Box
+              pos="relative"
+              style={{
+                overflow: "hidden",
+                borderRadius: 22,
+                border: "1px solid rgba(255,255,255,.11)",
+                boxShadow: "0 30px 70px rgba(0,0,0,.24)",
+              }}
+            >
               <Image
                 src="/images/inicio/home-lomoSaltado.png"
                 fallbackSrc="/images/inicio/home-causa.png"
-                alt="Presentación de plato en Restaurant Central"
+                alt="Plato servido de Restaurant Central"
+                h={{ base: 355, md: 545 }}
                 fit="cover"
-                h={{ base: 255, md: 365 }}
               />
-            </SimpleGrid>
-          </Paper>
+              <Box
+                aria-hidden="true"
+                pos="absolute"
+                inset={0}
+                style={{
+                  background: "linear-gradient(0deg, rgba(9,10,14,.87), transparent 44%)",
+                  pointerEvents: "none",
+                }}
+              />
+              <Stack pos="absolute" bottom={25} left={26} right={26} gap={5}>
+                <Text c="#fda4af" fw={800} size="xs" tt="uppercase" lts={1.6}>
+                  Restaurant Central
+                </Text>
+                <Title order={3} c="white" fw={800} size="xl">
+                  Cada plato tiene su momento.
+                </Title>
+              </Stack>
+            </Box>
+          </SimpleGrid>
         </Container>
       </Box>
     </Box>
