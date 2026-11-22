@@ -63,6 +63,7 @@ export default function ProductDrawer({
     setReviewText("");
     setRating(5);
     setReviewError("");
+    setReviews([]);
   }, [isOpen, productId]);
 
   useEffect(() => {
@@ -262,9 +263,7 @@ export default function ProductDrawer({
                     key={extra.id}
                     radius="md"
                     p="md"
-                    onClick={() => toggleExtra(extra.id)}
                     style={{
-                      cursor: "pointer",
                       backgroundColor: selectedExtraIds.includes(extra.id) ? "#362126" : "#24252b",
                       border: "1px solid " + (selectedExtraIds.includes(extra.id) ? "#bc4856" : "#3d3e45"),
                     }}
