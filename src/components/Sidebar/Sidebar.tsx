@@ -1,7 +1,7 @@
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { useAdminUiStore } from "@/core/stores/admin/admin-ui.store";
 import { logoutFromServer } from "@/core/services/auth/logout";
-import { ChartNoAxesCombined, ChevronRight, LayoutDashboard, LogOut, Menu, ShieldCheck, Tags, UtensilsCrossed, UsersRound, X } from "lucide-react";
+import { ChartNoAxesCombined, ChevronRight, LayoutDashboard, LogOut, Menu, ShieldCheck, Tags, UtensilsCrossed, UserRound, UsersRound, X } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 
@@ -11,6 +11,7 @@ const links = [
   { label: "Categorías", to: "/admin/categories", icon: Tags },
   { label: "Reportes", to: "/admin/reports", icon: ChartNoAxesCombined },
   { label: "Usuarios", to: "/admin/users", icon: UsersRound },
+  { label: "Mi perfil", to: "/admin/profile", icon: UserRound },
 ];
 
 export default function Sidebar() {
