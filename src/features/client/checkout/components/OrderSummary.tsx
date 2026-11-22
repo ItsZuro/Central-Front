@@ -6,6 +6,7 @@ import styles from "../Checkout.module.css";
 interface OrderSummaryProps {
   pickupMode?: boolean;
   isCheckoutReady?: boolean;
+  disabledReason?: string | null;
   items: CartItem[];
   subtotal: number;
   deliveryFee: number;
@@ -22,6 +23,7 @@ const money = (amount: number) => "S/ " + amount.toFixed(2);
 export default function OrderSummary({
   pickupMode = false,
   isCheckoutReady = true,
+  disabledReason = null,
   items,
   subtotal,
   deliveryFee,
@@ -135,7 +137,7 @@ export default function OrderSummary({
           rightSection={!isLoading && isCheckoutReady ? <ArrowRight size={18} /> : undefined}
         >
           {!isCheckoutReady
-            ? "Preparando pedido..."
+            ? (disabledReason || "Preparando pedido...")
             : isUserLoggedIn
               ? (pendingCardOrderId ? "Volver a abrir Niubiz" : "Confirmar pedido")
               : "Continuar e iniciar sesión"}
