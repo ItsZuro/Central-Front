@@ -1,7 +1,7 @@
 import type { LoginRequest, SignupRequest } from "@/core/types/auth/auth.model";
 import { useMutation } from "@tanstack/react-query";
 import type { AxiosError } from "axios";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { roleDefaultRoutes } from "../../constants/role-routes";
 import {
@@ -13,6 +13,7 @@ import type { ApiError, ApiResponse } from "../../types/base/api-response";
 
 export function useLoginMutation() {
   const navigate = useNavigate();
+  const location = useLocation();
   const setAuth = useAuthStore((s) => s.setAuth);
 
   return useMutation<LoginResponse, AxiosError<ApiError>, LoginRequest>({
@@ -29,7 +30,27 @@ export function useLoginMutation() {
       const userRole = priority.find((role) => data.user.roles?.includes(role));
       const redirectPath = userRole ? roleDefaultRoutes[userRole] || "/" : "/";
 
-      navigate(redirectPath, { replace: true });
+      // Solo restaurar páginas internas permitidas para una cuenta de cliente.
+      const context = location.state as {
+        from?: string;
+        checkoutDraft?: unknown;
+        reservationDraft?: unknown;
+      } | null;
+      const returnTo = userRole === "ROLE_CLIENT" &&
+        (context?.from === "/checkout" || context?.from === "/reservations")
+        ? context.from
+        : null;
+      if (returnTo) {
+        navigate(returnTo, {
+          replace: true,
+          state: {
+            checkoutDraft: context?.checkoutDraft,
+            reservationDraft: context?.reservationDraft,
+          },
+        });
+      } else {
+        navigate(redirectPath, { replace: true });
+      }
     },
     onError: (error) => {
       console.error("Error en login:", error);
@@ -52,13 +73,15 @@ export function useLoginMutation() {
 
 export function useSignupMutation() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   return useMutation<ApiResponse<number>, AxiosError<ApiError>, SignupRequest>({
     mutationFn: (data) => authService.signup(data),
     onSuccess: () => {
-      // El backend actual no envía correos de verificación: el alta deja la cuenta habilitada.\n      toast.success("Cuenta de cliente registrada. Ya puedes iniciar sesión.");
+      // El registro actual habilita al cliente sin requerir correo de verificación.
+      toast.success("Cuenta de cliente registrada. Ya puedes iniciar sesión.");
 
-      navigate("/auth/login");
+      navigate("/auth/login", { state: location.state, replace: true });
     },
     onError: (error) => {
       console.error(error);
