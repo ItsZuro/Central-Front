@@ -259,15 +259,27 @@ function Menu() {
               </Alert>
             )}
 
-            <Group justify="space-between" align="center">
-              <Box>
-                <Title order={3} c="white" size="h3" fw={800}>
-                  {activeCategory ? activeCategory.name : "Todos los platos"}
-                </Title>
-                <Text mt={4} c="#aeb1b8" size="sm">
-                  {!isLoading && !isError ? `${filteredProducts.length} resultados` : "Explora los sabores del restaurante"}
-                </Text>
-              </Box>
+            <Group justify="space-between" align="center" gap="md">
+              <Group gap="md" wrap="nowrap" style={{ minWidth: 0 }}>
+                {activeCategory?.imageUrl && (
+                  <Image src={activeCategory.imageUrl} alt="" aria-hidden="true"
+                    w={74} h={62} fit="cover" radius="md"
+                    fallbackSrc="/images/inicio/home-causa.png"/>
+                )}
+                <Box>
+                  <Title order={3} c="white" size="h3" fw={800}>
+                    {activeCategory ? activeCategory.name : "Todos los platos"}
+                  </Title>
+                  {activeCategory?.description && (
+                    <Text size="sm" c="#d0b8be" mt={4} maw={660}>
+                      {activeCategory.description}
+                    </Text>
+                  )}
+                  <Text mt={4} c="#aeb1b8" size="sm">
+                    {!isLoading && !isError ? `${filteredProducts.length} resultados` : "Explora los sabores del restaurante"}
+                  </Text>
+                </Box>
+              </Group>
               {(search || selectedCategoryId !== 0 || sort !== "featured") && (
                 <Button size="sm" variant="subtle" color="red" onClick={clearFilters} leftSection={<X size={16} />}>
                   Limpiar filtros
