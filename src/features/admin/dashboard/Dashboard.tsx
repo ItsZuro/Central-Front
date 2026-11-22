@@ -58,6 +58,7 @@ const dayLabel = (date: string) => {
 
 export default function Dashboard() {
   const user = useAuthStore((state) => state.user);
+  const isAdmin = Boolean(user?.roles?.includes("ROLE_ADMIN"));
   const [state, setState] = useState<AdminData>({ products: null, categories: null, users: null, summary: null, inventory: null });
   const [pending, setPending] = useState(true);
   const [failed, setFailed] = useState<string[]>([]);
@@ -69,7 +70,7 @@ export default function Dashboard() {
       api.get("reports/summary"),
       api.get("products/all"),
       api.get("categories"),
-      api.get("users/admin"),
+      isAdmin ? api.get("users/admin") : Promise.resolve({ data: { data: null } }),
       api.get("reports/inventory"),
     ]);
     const [summary, products, categories, users, inventory] = results;
@@ -77,7 +78,7 @@ export default function Dashboard() {
     if (summary.status === "rejected") failures.push("reportes");
     if (products.status === "rejected") failures.push("productos");
     if (categories.status === "rejected") failures.push("categorías");
-    if (users.status === "rejected") failures.push("usuarios");
+    if (isAdmin && users.status === "rejected") failures.push("usuarios");
     if (inventory.status === "rejected") failures.push("inventario");
 
     setState({
@@ -89,7 +90,7 @@ export default function Dashboard() {
     });
     setFailed(failures);
     setPending(false);
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => { void load(); }, [load, refresh]);
 
@@ -122,7 +123,7 @@ export default function Dashboard() {
   const tools = [
     { label: "Agregar producto", help: "Actualizar catálogo", icon: Plus, to: "/admin/products" },
     { label: "Crear categoría", help: "Organizar menú", icon: Tags, to: "/admin/categories" },
-    { label: "Administrar usuarios", help: "Equipo y permisos", icon: UsersRound, to: "/admin/users" },
+    ...(isAdmin ? [{ label: "Administrar usuarios", help: "Equipo y permisos", icon: UsersRound, to: "/admin/users" }] : []),
     { label: "Mi perfil", help: "Datos y seguridad", icon: UserRound, to: "/admin/profile" },
   ];
 
