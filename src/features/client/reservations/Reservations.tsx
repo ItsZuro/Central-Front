@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import axios from "axios";
+import "dayjs/locale/es";
+import { DatePickerInput } from "@mantine/dates";
+import calendarStyles from "./ReservationCalendar.module.css";
 import { Link } from "react-router-dom";
 import {
-  Alert, Avatar, Badge, Box, Button, Container, Divider, Grid, Group,
+  ActionIcon, Alert, Avatar, Badge, Box, Button, Container, Divider, Grid, Group,
   Image, Modal, NumberInput, Paper, SimpleGrid, Skeleton, Stack,
   Text, TextInput, ThemeIcon, Title,
 } from "@mantine/core";
 import {
   ArrowRight, CalendarDays, Check, CheckCircle2, ChevronRight, CircleAlert,
-  Clock3, ClipboardList, LogIn, Phone, RefreshCw,
+  Clock3, ClipboardList, LogIn, Minus, Phone, Plus, RefreshCw,
   ShieldCheck, Sparkles, Users, UtensilsCrossed, X,
 } from "lucide-react";
 import { api } from "@/core/api/api";
@@ -336,30 +339,87 @@ export default function Reservations() {
                   <Text c="white" fw={800}>Elige fecha y número de personas</Text>
                 </Group>
                 <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                  <TextInput
+                  <DatePickerInput
                     label="Fecha de la reserva"
-                    type="date"
-                    min={today}
-                    value={date}
-                    onChange={(event) => { setDate(event.currentTarget.value); setCreated(null); }}
+                    placeholder="Selecciona una fecha"
+                    locale="es"
+                    firstDayOfWeek={1}
+                    valueFormat="DD/MM/YYYY"
+                    value={date || null}
+                    minDate={today}
+                    onChange={(value) => { setDate(value || ""); setCreated(null); }}
                     required
-                    leftSection={<CalendarDays size={17} color="#a8aab3"/>}
-                    styles={fieldStyles}
-                    style={{ colorScheme: "dark" }}
+                    leftSection={<CalendarDays size={19} color="#a8aab3" />}
+                    rightSection={<CalendarDays size={17} color="#b1b3bd" />}
+                    classNames={{
+                      input: calendarStyles.dateInput,
+                      label: calendarStyles.dateLabel,
+                    }}
+                    popoverProps={{
+                      withinPortal: true,
+                      zIndex: 250,
+                      shadow: "xl",
+                      position: "bottom-start",
+                      classNames: { dropdown: calendarStyles.calendarDropdown },
+                    }}
                   />
-                  <NumberInput
-                    label="Número de personas"
-                    value={guests}
-                    min={1}
-                    max={10}
-                    allowDecimal={false}
-                    allowNegative={false}
-                    clampBehavior="strict"
-                    onChange={(value) => { setGuests(typeof value === "number" ? value : 2); setCreated(null); }}
-                    required
-                    leftSection={<Users size={17} color="#a8aab3"/>}
-                    styles={fieldStyles}
-                  />
+                  <Stack gap={10}>
+                    <Text component="label" htmlFor="reservation-guests" c="#ececf1" fw={700} size="sm">
+                      Número de personas <Text span c="red.4">*</Text>
+                    </Text>
+                    <Group gap="sm" wrap="nowrap">
+                      <ActionIcon
+                        size={48}
+                        radius="lg"
+                        variant="default"
+                        type="button"
+                        aria-label="Quitar una persona"
+                        disabled={guests <= 1}
+                        onClick={() => { setGuests((value) => Math.max(1, value - 1)); setCreated(null); }}
+                        styles={{ root: { backgroundColor: "#292a30", borderColor: "#4b4c56", color: "#f5f5f6", flexShrink: 0 } }}
+                      >
+                        <Minus size={19} />
+                      </ActionIcon>
+                      <NumberInput
+                        id="reservation-guests"
+                        aria-label="Número de personas"
+                        value={guests}
+                        min={1}
+                        max={10}
+                        allowDecimal={false}
+                        allowNegative={false}
+                        clampBehavior="strict"
+                        hideControls
+                        onChange={(value) => {
+                          setGuests(typeof value === "number" ? value : 2);
+                          setCreated(null);
+                        }}
+                        required
+                        style={{ flex: 1, minWidth: 0 }}
+                        leftSection={<Users size={18} color="#9fa2ae" />}
+                        styles={{
+                          input: {
+                            ...fieldStyles.input,
+                            textAlign: "center",
+                            fontWeight: 800,
+                            fontSize: 17,
+                          },
+                        }}
+                      />
+                      <ActionIcon
+                        size={48}
+                        radius="lg"
+                        variant="default"
+                        type="button"
+                        aria-label="Añadir una persona"
+                        disabled={guests >= 10}
+                        onClick={() => { setGuests((value) => Math.min(10, value + 1)); setCreated(null); }}
+                        styles={{ root: { backgroundColor: "#292a30", borderColor: "#4b4c56", color: "#f5f5f6", flexShrink: 0 } }}
+                      >
+                        <Plus size={19} />
+                      </ActionIcon>
+                    </Group>
+                  </Stack>
                 </SimpleGrid>
                 <Group justify="flex-start" mt="md" gap="xs">
                   <Button
