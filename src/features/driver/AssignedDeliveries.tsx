@@ -1,3 +1,4 @@
+import { logoutFromServer } from "@/core/services/auth/logout";
 import { orderService } from "@/core/services/order/order.service";
 import type { OrderResponse } from "@/core/types/order/order.model";
 import {
@@ -5,8 +6,9 @@ import {
   SimpleGrid, Stack, Text, ThemeIcon, Title,
 } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, ArrowLeft, Bike, CheckCircle2, Clock3, MapPin, PackageCheck, RefreshCw, Truck } from "lucide-react";
-import { Link } from "react-router-dom";
+import { AlertCircle, Bike, CheckCircle2, Clock3, LogOut, MapPin, PackageCheck, RefreshCw, Truck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { toast } from "react-toastify";
 import styles from "../waiter/Waiter.module.css";
 
@@ -24,9 +26,21 @@ const labels: Record<string, string> = {
 
 export default function AssignedDeliveries() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const logout = async () => {
+    setLoggingOut(true);
+    try {
+      await logoutFromServer();
+    } finally {
+      setLoggingOut(false);
+      navigate("/auth/login", { replace: true });
+    }
+  };
 
   const deliveries = useQuery({
-    queryKey: ["waiter", "deliveries", "mine"],
+    queryKey: ["driver", "deliveries", "mine"],
     queryFn: async () => {
       const response = await orderService.getAssignedDeliveries();
       if (!response.success) throw new Error(response.message);
@@ -43,7 +57,7 @@ export default function AssignedDeliveries() {
     },
     onSuccess: async () => {
       toast.success("Estado del reparto actualizado.");
-      await queryClient.invalidateQueries({ queryKey: ["waiter", "deliveries"] });
+      await queryClient.invalidateQueries({ queryKey: ["driver", "deliveries"] });
       await queryClient.invalidateQueries({ queryKey: ["waiter", "orders"] });
     },
     onError: () => toast.error("No se pudo actualizar el reparto. Comprueba la asignación y el estado del pedido."),
@@ -58,8 +72,7 @@ export default function AssignedDeliveries() {
         <Stack gap="xl">
           <Group justify="space-between" align="flex-start" gap="md">
             <Box>
-              <Button component={Link} to="/waiter" variant="subtle" color="gray" size="sm"
-                leftSection={<ArrowLeft size={16} />}>Volver al panel del mesero</Button>
+              <Text c="#f28b98" size="xs" fw={800} tt="uppercase" lts={1.5}>Restaurant Central / Repartidor</Text>
               <Group gap="sm" mt="lg">
                 <ThemeIcon color="red" variant="light" radius="md" size={48}><Truck size={24} /></ThemeIcon>
                 <Box>
@@ -68,8 +81,12 @@ export default function AssignedDeliveries() {
                 </Box>
               </Group>
             </Box>
-            <Button variant="default" leftSection={<RefreshCw size={17} />}
-              onClick={() => void deliveries.refetch()} loading={deliveries.isFetching}>Actualizar</Button>
+            <Group gap="sm">
+              <Button variant="default" leftSection={<RefreshCw size={17} />}
+                onClick={() => void deliveries.refetch()} loading={deliveries.isFetching}>Actualizar</Button>
+              <Button variant="subtle" color="gray" leftSection={<LogOut size={17}/>}
+                loading={loggingOut} onClick={() => void logout()}>Salir</Button>
+            </Group>
           </Group>
 
           {deliveries.isError && (
