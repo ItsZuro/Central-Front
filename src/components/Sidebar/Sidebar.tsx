@@ -2,7 +2,7 @@ import { logoutFromServer } from "@/core/services/auth/logout";
 import { useAdminUiStore } from "@/core/stores/admin/admin-ui.store";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { ActionIcon, Avatar, Badge, Box, Button, Divider, Drawer, Group, NavLink as MantineNavLink, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
-import { ChartNoAxesCombined, ChevronRight, LayoutDashboard, LogOut, Menu as MenuIcon, ShieldCheck, Tags, UtensilsCrossed, UserRound, UsersRound } from "lucide-react";
+import { ChartNoAxesCombined, ChevronRight, LayoutDashboard, LogOut, MapPin, Menu as MenuIcon, ShieldCheck, Tags, UtensilsCrossed, UserRound, UsersRound } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -11,6 +11,7 @@ const navigation = [
   { label: "Productos", to: "/admin/products", icon: UtensilsCrossed },
   { label: "Categorías", to: "/admin/categories", icon: Tags },
   { label: "Reportes", to: "/admin/reports", icon: ChartNoAxesCombined },
+  { label: "Sucursales y delivery", to: "/admin/stores", icon: MapPin },
   { label: "Usuarios", to: "/admin/users", icon: UsersRound, adminOnly: true },
   { label: "Mi perfil", to: "/admin/profile", icon: UserRound },
 ];
