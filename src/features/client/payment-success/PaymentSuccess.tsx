@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 type CompletionState = {
   orderId?: number;
   paymentStatus?: "PENDING" | "CONFIRMED";
+  orderMode?: "pickup" | "delivery";
 };
 
 export default function PaymentSuccess() {
@@ -27,7 +28,9 @@ export default function PaymentSuccess() {
             ? "No hay una confirmación de pago disponible en esta pantalla. Consulta el estado de tus pedidos."
             : paid
               ? "La transacción fue confirmada por el servidor. Tu pedido está registrado."
-              : "Tu pedido fue registrado. El pago sigue pendiente y se realizará al recibirlo."}
+              : completion?.orderMode === "pickup"
+                ? "Tu pedido de recogida fue registrado. El pago sigue pendiente; esta sucursal es de demostración y todavía no recibe clientes."
+                : "Tu pedido fue registrado. El pago sigue pendiente y se realizará al recibirlo."}
         </p>
         {recorded && completion?.orderId != null && (
           <p className="mb-5 text-sm text-gray-300">Pedido #{completion.orderId}</p>
