@@ -389,7 +389,7 @@ export default function Sales() {
           </Group>
           <EntryList entries={(shift?.entries || []).slice(-6)}/>
         </Paper>
-        <Alert color="blue" variant="light" icon={<ShieldCheck size={18}/>}>
+        <Alert className={styles.infoAlert} color="blue" icon={<ShieldCheck size={18}/>}>
           El cierre incluye únicamente los pagos presenciales confirmados en tu turno.
           Niubiz se confirma fuera de caja; Yape, Plin y transferencias se registran manualmente
           y deben cotejarse contra sus respectivos comprobantes.
@@ -455,7 +455,7 @@ export default function Sales() {
             <Button color="red" disabled={!shift} leftSection={<Plus size={17}/>}
               onClick={() => { setMovementType("CASH_IN"); setMovementModal(true); }}>Añadir movimiento</Button>
           </Group>
-          <Alert color="blue" icon={<ShieldCheck size={17}/>} mb="md">
+          <Alert className={styles.infoAlert} color="blue" icon={<ShieldCheck size={17}/>} mb="md">
             Los movimientos son ajustes de efectivo (ingresos o retiros), no cobros de clientes.
             Para cobrar con Yape, Plin, transferencia o efectivo utiliza la pestaña «Cobros».
           </Alert>
