@@ -8,7 +8,7 @@ export default function PublicLayout() {
   const user = useAuthStore((state) => state.user);
 
   // Un ADMIN tiene su propia interfaz, incluso si escribe manualmente la URL pública.
-  if (accessToken && user?.roles?.includes("ROLE_ADMIN")) {
+  if (accessToken && user?.roles?.some((role) => ["ROLE_ADMIN", "ROLE_MANAGER"].includes(role))) {
     return <Navigate to="/admin/dashboard" replace />;
   }
 
