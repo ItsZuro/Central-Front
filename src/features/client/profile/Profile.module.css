@@ -11,11 +11,11 @@
 .hero {
   position: relative;
   overflow: hidden;
-  border: 1px solid #473539;
+  border: 1px solid #70505b;
   border-radius: 22px;
-  background: linear-gradient(115deg, #351b22 0%, #231b21 47%, #19191d 100%);
+  background: radial-gradient(ellipse 510px 220px at 12% 40%, rgba(191, 105, 118, .22), transparent 80%), linear-gradient(112deg, #493039 0%, #34262f 53%, #27232a 100%);
   padding: 30px;
-  box-shadow: 0 24px 60px rgba(0,0,0,.17);
+  box-shadow: 0 22px 58px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.045);
 }
 .hero::after {
   content: "";
@@ -28,8 +28,22 @@
   box-shadow: 0 0 0 50px rgba(249,178,126,.035), 0 0 0 120px rgba(249,178,126,.025);
 }
 .heroContent { display: flex; gap: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; position: relative; z-index: 1; }
-.avatarFrame { position: relative; width: max-content; }
-.avatar { border: 3px solid rgba(254,217,191,.16); background: #704148 !important; color: #fff !important; font-weight: 850; font-size: 30px !important; }
+.avatarFrame { position: relative; width: max-content; filter: drop-shadow(0 10px 18px rgba(0,0,0,.17)); }
+.avatar {
+  border: 3px solid rgba(252,218,217,.43);
+  background: #a56471 !important;
+  color: #fff !important;
+  font-weight: 850;
+  font-size: 30px !important;
+}
+/* Mantine aplica el color de las iniciales en un elemento interno. */
+.avatar :global(.mantine-Avatar-placeholder) {
+  background: linear-gradient(140deg, #ad7280, #88505f) !important;
+  color: #fff7f7 !important;
+  font-size: 30px;
+  font-weight: 850;
+  text-shadow: 0 1px 2px rgba(0,0,0,.18);
+}
 .camera {
   position: absolute; bottom: -5px; right: -7px; z-index: 2;
   width: 34px; height: 34px; background: #e7444c; border: 3px solid #291d22;
@@ -40,8 +54,8 @@
 .camera:disabled { opacity: .5; cursor: wait; }
 .identity { min-width: 0; }
 .heroName { font-size: clamp(22px, 2.6vw, 32px); font-weight: 850; letter-spacing: -.035em; color: #fff; line-height: 1.2; }
-.heroEmail { color: #c1abb4; font-size: 13px; overflow-wrap: anywhere; margin-top: 6px; }
-.memberTag { font-size: 11px; color: #fad9a7; background: rgba(226,178,113,.11); border: 1px solid rgba(226,178,113,.3); border-radius: 999px; padding: 7px 12px; font-weight: 800; }
+.heroEmail { color: #f0d7df; font-size: 13px; overflow-wrap: anywhere; margin-top: 6px; }
+.memberTag { font-size: 11px; color: #ffdfb0; background: rgba(226,178,113,.16); border: 1px solid rgba(246,191,122,.42); border-radius: 999px; padding: 7px 12px; font-weight: 800; }
 .grid { display: grid; grid-template-columns: minmax(0,1.65fr) minmax(290px,1fr); gap: 23px; margin-top: 24px; align-items: start; }
 .column { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 .panel { background: #1e1d20 !important; border: 1px solid #373338 !important; border-radius: 18px !important; color: #fff !important; box-shadow: 0 15px 46px rgba(0,0,0,.1); }
