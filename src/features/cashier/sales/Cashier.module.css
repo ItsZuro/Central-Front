@@ -43,3 +43,44 @@
 .root :global(.mantine-NumberInput-input) { color-scheme: dark; }
 .root :global(.mantine-Tabs-list) { gap:5px; }
 .root :global(.mantine-Pagination-control) { background:#332c36; color:#fff; border-color:#514653; }
+
+
+/* Mantine renders modal content outside .root; inherit explicit dark tokens. */
+.modalContent {
+  color-scheme: dark;
+  --mantine-color-text: #f7f2f6;
+  --mantine-color-dimmed: #bcb2c1;
+  --mantine-color-default: #332e38;
+  --mantine-color-default-border: #615665;
+  --mantine-color-default-hover: #4c3a49;
+}
+.modalContent :global(.mantine-Alert-message),
+.modalContent :global(.mantine-Alert-title),
+.modalContent :global(.mantine-Alert-label) {
+  color: #f4eff6 !important;
+}
+.modalContent :global(.mantine-Input-description),
+.modalContent :global(.mantine-Textarea-description),
+.modalContent :global(.mantine-NumberInput-description) {
+  color: #bdb5c1 !important;
+}
+.modalContent :global(.mantine-Button-root[data-variant="default"]) {
+  background: #34303a !important;
+  color: #fff !important;
+  border: 1px solid #615766 !important;
+}
+.modalContent :global(.mantine-Button-root[data-variant="default"]:hover) {
+  background: #4b3d49 !important;
+}
+.modalContent :global(.mantine-NumberInput-control) {
+  background: #34303a;
+  color: #f4e9f0;
+}
+.modalContent :global(.mantine-NumberInput-control:hover) {
+  background: #59404d !important;
+  color: #fff !important;
+}
+.modalContent :global(.mantine-Input-input),
+.modalContent :global(.mantine-Textarea-input) {
+  color: #f7f2f6;
+}
