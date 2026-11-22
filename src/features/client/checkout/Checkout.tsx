@@ -373,12 +373,23 @@ export default function CheckoutPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* COLUMNA IZQUIERDA: Formularios o Login */}
+          {/* El invitado puede revisar el pedido antes de iniciar sesión. */}
           <div className="lg:col-span-2 space-y-8">
-            {!user ? (
-              <LoginPrompt />
-            ) : (
-              <>
+            {!isClient && (
+              <Alert color="yellow" radius="lg" icon={<Store size={19} />}
+                title="Puedes preparar tu pedido sin iniciar sesión">
+                Completa los datos, revisa el resumen y entra con tu cuenta
+                solo cuando vayas a confirmar.
+                {!accessToken && (
+                  <Box mt="sm">
+                    <Link to="/auth/login" state={loginState}
+                      className="font-bold text-yellow-200 underline underline-offset-4 hover:text-white">
+                      Ya tengo cuenta, iniciar sesión
+                    </Link>
+                  </Box>
+                )}
+              </Alert>
+            )}
                 <Box
                   p="lg"
                   style={{ backgroundColor: "#26272e", border: "1px solid #41424a", borderRadius: 16 }}
@@ -412,11 +423,15 @@ export default function CheckoutPage() {
                           la dirección exacta sigue pendiente; no acudas a ella para recoger pedidos.
                         </Text>
                       ) : (
-                        <Text size="sm">No encontramos la sucursal. Verifica que esté registrada en PostgreSQL.</Text>
+                        <Text size="sm">
+                          {isClient
+                            ? "No encontramos la sucursal. Verifica que esté registrada en PostgreSQL."
+                            : "Los detalles de la sucursal aparecerán cuando inicies sesión."}
+                        </Text>
                       )}
                     </Alert>
                   )}
-                  {!canQuoteDelivery && (
+                  {!canQuoteDelivery && isClient && (
                     <Group gap="xs" mt="sm">
                       <Truck size={15} color="#a9aab4" />
                       <Text c="#a9aab4" size="xs">
@@ -468,8 +483,6 @@ export default function CheckoutPage() {
                     )}
                   </div>
                 )}
-              </>
-            )}
           </div>
 
           {/* COLUMNA DERECHA: Resumen */}
@@ -477,15 +490,15 @@ export default function CheckoutPage() {
             <OrderSummary
               pickupMode={orderMode === "pickup"}
               isCheckoutReady={Boolean(
-                !checkoutConfig.isLoading && !checkoutConfig.isError &&
-                (orderMode === "pickup" ? pickupConfigured : canQuoteDelivery)
+                !isClient || (!checkoutConfig.isLoading && !checkoutConfig.isError &&
+                (orderMode === "pickup" ? pickupConfigured : canQuoteDelivery))
               )}
               items={items}
               subtotal={subtotal}
               deliveryFee={deliveryFee}
               total={total}
               isLoading={isLoading}
-              isUserLoggedIn={!!user}
+              isUserLoggedIn={isClient}
               onRemoveItem={removeItem}
               onProcessOrder={handleProcessOrder}
             />
