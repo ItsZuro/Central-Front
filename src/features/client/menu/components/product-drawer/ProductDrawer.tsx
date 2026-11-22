@@ -1,9 +1,15 @@
+import { api } from "@/core/api/api";
+import type { ApiResponse } from "@/core/types/base/api-response";
+import { useAuthStore } from "@/core/stores/auth/auth.store";
 import type { CartItemDraft } from "@/core/stores/cart/cart.store";
 import type { ProductResponse } from "@/core/types/products/products.model";
-import { Minus, Plus, X, Star } from "lucide-react";
-import { api } from "@/core/api/api";
-import { useAuthStore } from "@/core/stores/auth/auth.store";
-import type { ApiResponse } from "@/core/types/base/api-response";
+import {
+  ActionIcon, Alert, Badge, Box, Button, Checkbox, Divider, Drawer, Group,
+  Image, Paper, Rating, Stack, Text, Textarea, ThemeIcon, Title,
+} from "@mantine/core";
+import {
+  AlertCircle, CheckCircle2, ChefHat, Clock3, Minus, Plus, ShoppingBag, Star, X,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
@@ -13,337 +19,376 @@ interface ProductDrawerProps {
   onClose: () => void;
   onAddToCart?: (item: CartItemDraft) => void;
 }
+
+interface ProductReview {
+  id: number;
+  customerName: string;
+  comment: string;
+  rating: number;
+}
+
+const money = (value: number) =>
+  "S/ " + Number(value || 0).toLocaleString("es-PE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 export default function ProductDrawer({
-  dish,
-  isOpen,
-  onClose,
-  onAddToCart,
+  dish, isOpen, onClose, onAddToCart,
 }: ProductDrawerProps) {
-  const [quantity, setQuantity] = useState<number>(1);
-  const [selectedExtraIds, setSelectedExtraIds] = useState<number[]>([]);
-  const [notes, setNotes] = useState<string>("");
-  const [isVisible, setIsVisible] = useState(false);
   const user = useAuthStore((state) => state.user);
   const isClient = Boolean(user?.roles?.includes("ROLE_CLIENT"));
-  const [reviews, setReviews] = useState<Array<{ id: number; customerName: string; comment: string; rating: number }>>([]);
+
+  const [quantity, setQuantity] = useState(1);
+  const [selectedExtraIds, setSelectedExtraIds] = useState<number[]>([]);
+  const [notes, setNotes] = useState("");
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewError, setReviewError] = useState("");
   const [reviewText, setReviewText] = useState("");
   const [rating, setRating] = useState(5);
   const [submittingReview, setSubmittingReview] = useState(false);
-  const [reviewEligibility, setReviewEligibility] = useState<"checking" | "eligible" | "ineligible" | "error">("checking");
+  const [reviewEligibility, setReviewEligibility] = useState<
+    "checking" | "eligible" | "ineligible" | "error"
+  >("checking");
   const [reviewRefresh, setReviewRefresh] = useState(0);
-  useEffect(() => {
-    if (!isOpen || !dish) return;
-    let active = true;
-    api.get<ApiResponse<typeof reviews>>(`/reviews/product/${dish.id}`)
-      .then(({ data }) => { if (active) setReviews(data.data || []); })
-      .catch(() => { if (active) setReviewError("No se pudieron cargar las reseñas."); });
-    return () => { active = false; };
-  }, [dish, isOpen, reviewRefresh]);
+
+  const productId = dish?.id;
 
   useEffect(() => {
-    if (!isOpen || !dish || !isClient) return;
+    if (!isOpen || !productId) return;
+    setQuantity(1);
+    setSelectedExtraIds([]);
+    setNotes("");
+    setReviewText("");
+    setRating(5);
+    setReviewError("");
+  }, [isOpen, productId]);
+
+  useEffect(() => {
+    if (!isOpen || !productId) return;
+    let active = true;
+    setReviewsLoading(true);
+    api.get<ApiResponse<ProductReview[]>>(`reviews/product/${productId}`)
+      .then(({ data }) => {
+        if (active) {
+          setReviews(Array.isArray(data.data) ? data.data : []);
+          setReviewError("");
+        }
+      })
+      .catch(() => {
+        if (active) setReviewError("No se pudieron consultar las reseñas de este producto.");
+      })
+      .finally(() => {
+        if (active) setReviewsLoading(false);
+      });
+    return () => { active = false; };
+  }, [isOpen, productId, reviewRefresh]);
+
+  useEffect(() => {
+    if (!isOpen || !productId || !isClient) return;
     let active = true;
     setReviewEligibility("checking");
-    api.get<ApiResponse<boolean>>(`reviews/product/${dish.id}/eligibility`)
-      .then(({ data }) => { if (active) setReviewEligibility(data.data ? "eligible" : "ineligible"); })
-      .catch(() => { if (active) setReviewEligibility("error"); });
+    api.get<ApiResponse<boolean>>(`reviews/product/${productId}/eligibility`)
+      .then(({ data }) => {
+        if (active) setReviewEligibility(data.data ? "eligible" : "ineligible");
+      })
+      .catch(() => {
+        if (active) setReviewEligibility("error");
+      });
     return () => { active = false; };
-  }, [dish, isOpen, isClient, reviewRefresh]);
+  }, [isOpen, productId, isClient, reviewRefresh]);
 
-  async function submitReview() {
-    if (!dish || !isClient || reviewEligibility !== "eligible") return;
+  if (!dish) return null;
+
+  const extrasTotal = selectedExtraIds.reduce((sum, id) => {
+    const extra = dish.extras?.find((item) => item.id === id);
+    return sum + (extra ? Number(extra.price) : 0);
+  }, 0);
+  const unitPrice = Number((Number(dish.price) + extrasTotal).toFixed(2));
+  const totalPrice = Number((unitPrice * quantity).toFixed(2));
+
+  const toggleExtra = (extraId: number) => {
+    setSelectedExtraIds((ids) =>
+      ids.includes(extraId) ? ids.filter((id) => id !== extraId) : [...ids, extraId],
+    );
+  };
+
+  const addToCart = () => {
+    if (!onAddToCart) return;
+    onAddToCart({
+      product: dish,
+      quantity,
+      selectedExtras: dish.extras?.filter((extra) => selectedExtraIds.includes(extra.id)) || [],
+      notes: notes.trim(),
+      // El precio se almacena por unidad. Zustand multiplica por cantidad.
+      finalPrice: unitPrice,
+    });
+    onClose();
+  };
+
+  const submitReview = async () => {
+    if (!isClient || reviewEligibility !== "eligible" || !productId) return;
     setSubmittingReview(true);
     setReviewError("");
     try {
-      await api.post("/reviews", {
-        productId: dish.id,
+      await api.post("reviews", {
+        productId,
         rating,
         comment: reviewText.trim(),
       });
       setReviewText("");
       setReviewRefresh((value) => value + 1);
-      toast.success("Gracias por compartir tu calificación.");
+      toast.success("¡Gracias por compartir tu calificación!");
     } catch {
-      setReviewError("No se pudo publicar. Comprueba que el pedido esté completado o entregado y que no hayas reseñado antes.");
+      setReviewError("No se pudo publicar. Comprueba que tu pedido esté entregado o completado y que no hayas reseñado antes.");
     } finally {
       setSubmittingReview(false);
     }
-  }
-
-
-  useEffect(() => {
-    if (isOpen) {
-      setIsVisible(true);
-      setQuantity(1);
-      setSelectedExtraIds([]);
-      setNotes("");
-    } else {
-      const timer = setTimeout(() => setIsVisible(false), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
-
-  if (!isVisible && !isOpen) return null;
-  if (!dish) return null;
-
-  const toggleExtra = (extraId: number) => {
-    setSelectedExtraIds((prev) =>
-      prev.includes(extraId)
-        ? prev.filter((id) => id !== extraId)
-        : [...prev, extraId]
-    );
-  };
-
-  const calculateTotal = () => {
-    const basePrice = Number(dish.price);
-
-    const extrasTotal = selectedExtraIds.reduce((total, id) => {
-      const extra = dish.extras?.find((e) => e.id === id);
-      return total + (extra ? Number(extra.price) : 0);
-    }, 0);
-
-    return Number(((basePrice + extrasTotal) * quantity).toFixed(2));
-  };
-
-  const totalPrice = calculateTotal();
-
-  const handleAddToCart = () => {
-    const cartItem = {
-      product: dish,
-      quantity,
-      selectedExtras:
-        dish.extras?.filter((e) => selectedExtraIds.includes(e.id)) || [],
-      notes,
-      // El carrito almacena precio UNITARIO; la cantidad se aplica una sola vez.
-      finalPrice: Number((totalPrice / quantity).toFixed(2)),
-    };
-
-    console.log("Item para el carrito:", cartItem); 
-
-    if (onAddToCart) onAddToCart(cartItem);
-
-    onClose();
   };
 
   return (
-    <div
-      className={`fixed inset-0 z-50 flex justify-end transition-opacity duration-300 ${
-        isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-      }`}
+    <Drawer
+      opened={isOpen}
+      onClose={onClose}
+      position="right"
+      size="lg"
+      withCloseButton={false}
+      padding={0}
+      title={null}
+      zIndex={150}
+      closeOnEscape
+      styles={{
+        content: { backgroundColor: "#1a1b20", color: "#f8fafc" },
+        body: { padding: 0, minHeight: "100%" },
+      }}
     >
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-      />
-
-      <div
-        className={`relative w-full max-w-md h-full bg-neutral-900 shadow-2xl flex flex-col transform transition-transform duration-300 ease-out border-l border-neutral-800 ${
-          isOpen ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <div className="relative h-64 shrink-0">
-          <img
-            src={dish.imageUrl || "https://via.placeholder.com/400x300"}
+      <Box style={{ minHeight: "100%", backgroundColor: "#1a1b20" }}>
+        <Box pos="relative" h={270} style={{ overflow: "hidden" }}>
+          <Image
+            src={dish.imageUrl || "/images/inicio/home-causa.png"}
+            fallbackSrc="/images/inicio/home-causa.png"
             alt={dish.name}
-            className="w-full h-full object-cover mask-image-gradient"
+            h={270}
+            fit="cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-transparent to-black/40"></div>
-
-          <button
+          <Box
+            pos="absolute"
+            inset={0}
+            style={{
+              background: "linear-gradient(0deg, rgba(13,14,18,.98), rgba(13,14,18,.08) 63%, rgba(0,0,0,.4))",
+              pointerEvents: "none",
+            }}
+          />
+          <ActionIcon
+            variant="filled"
+            color="dark"
+            size="xl"
+            radius="xl"
             onClick={onClose}
-            className="absolute top-4 right-4 bg-black/50 hover:bg-red-600 text-white p-2 rounded-full backdrop-blur-md transition-all duration-200 shadow-lg group"
-            aria-label="Cerrar"
+            aria-label="Cerrar detalles"
+            pos="absolute"
+            top={18}
+            right={18}
+            style={{ backgroundColor: "rgba(0,0,0,.7)", border: "1px solid rgba(255,255,255,.22)" }}
           >
-            <div className="group-hover:rotate-90 transition-transform duration-200">
-              <X />
-            </div>
-          </button>
-
-          <div className="absolute bottom-4 left-6 right-6">
-            <span className="inline-block px-2 py-1 mb-2 text-xs font-bold text-white bg-red-600 rounded uppercase tracking-wider">
-              {dish.categoryName || "Especial"}
-            </span>
-            <h2 className="text-3xl font-extrabold text-white leading-tight drop-shadow-md">
+            <X size={21} />
+          </ActionIcon>
+          <Box pos="absolute" bottom={18} left={26} right={24}>
+            <Badge color="red" variant="filled" mb="sm">{dish.categoryName || "Especial"}</Badge>
+            <Title order={2} c="white" fw={900} lh={1.18} style={{ fontSize: "clamp(1.7rem, 4vw, 2.3rem)" }}>
               {dish.name}
-            </h2>
-          </div>
-        </div>
+            </Title>
+          </Box>
+        </Box>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
-          <div>
-            <p className="text-gray-300 text-base leading-relaxed">
-              {dish.description || "Descripción no disponible."}
-            </p>
-            <div className="mt-3 flex items-center gap-2 text-amber-500 font-semibold">
-              <span>⏱ {dish.preparationTimeMinutes || 15} min</span>
-              <span>•</span>
-              <span className="text-gray-400 font-normal">
-                Precio base: S/ {dish.price}
-              </span>
-            </div>
-          </div>
+        <Stack gap="xl" px={{ base: "lg", sm: "xl" }} py="xl">
+          <Box>
+            <Text c="#d4d5db" size="sm" lh={1.8}>{dish.description || "Descripción no disponible."}</Text>
+            <Group gap="md" mt="md" wrap="wrap">
+              <Group gap={6}>
+                <Clock3 size={16} color="#fda4af" />
+                <Text c="#c5c6ce" size="sm">{dish.preparationTimeMinutes ? `${dish.preparationTimeMinutes} min` : "Tiempo por confirmar"}</Text>
+              </Group>
+              <Group gap={6}>
+                <ChefHat size={16} color="#fda4af" />
+                <Text c="#c5c6ce" size="sm">Preparado a tu gusto</Text>
+              </Group>
+              {Number(dish.rating) > 0 && (
+                <Group gap={6}>
+                  <Star size={16} fill="#fbbf24" color="#fbbf24" />
+                  <Text c="#f6d992" size="sm" fw={700}>{Number(dish.rating).toFixed(1)}</Text>
+                </Group>
+              )}
+            </Group>
+            <Group mt="lg" justify="space-between" style={{ borderTop: "1px solid #35363d", paddingTop: 15 }}>
+              <Text c="#aeb1b8" size="sm">Precio base</Text>
+              <Title order={3} c="#fda4af" fw={850}>{money(Number(dish.price))}</Title>
+            </Group>
+          </Box>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-3 uppercase tracking-wide">
-              Cantidad
-            </label>
-            <div className="flex items-center justify-between bg-neutral-800 rounded-xl p-2 border border-neutral-700">
-              <button
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="w-12 h-12 flex items-center justify-center bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg transition-colors"
-              >
-                <Minus />
-              </button>
-              <span className="text-2xl font-bold text-white">{quantity}</span>
-              <button
-                onClick={() => setQuantity(quantity + 1)}
-                className="w-12 h-12 flex items-center justify-center bg-neutral-700 hover:bg-red-600 text-white rounded-lg transition-colors"
-              >
-                <Plus />
-              </button>
-            </div>
-          </div>
+          <Divider color="#393940" />
 
-          {dish.extras && dish.extras.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-3 uppercase tracking-wide">
-                Adicionales
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {dish.extras.map((extra) => {
-                  const isSelected = selectedExtraIds.includes(extra.id);
-                  return (
-                    <button
-                      key={extra.id}
-                      onClick={() => toggleExtra(extra.id)}
-                      className={`px-4 py-3 rounded-xl text-sm font-medium border transition-all duration-200 flex items-center justify-between group ${
-                        isSelected
-                          ? "bg-red-600/10 border-red-600 text-red-500 shadow-[0_0_15px_rgba(220,38,38,0.2)]"
-                          : "bg-neutral-800 border-neutral-700 text-gray-400 hover:border-gray-500 hover:bg-neutral-700"
-                      }`}
-                    >
-                      <div className="flex flex-col items-start">
-                        <span>{extra.name}</span>
-                        <span className="text-xs opacity-70 font-normal">
-                          + S/ {Number(extra.price).toFixed(2)}
-                        </span>
-                      </div>
+          <Box>
+            <Text c="white" fw={800} size="sm" mb="md">Cantidad</Text>
+            <Group justify="space-between" p="xs" style={{ borderRadius: 12, border: "1px solid #43444d", backgroundColor: "#23242b" }}>
+              <ActionIcon
+                size="xl"
+                radius="md"
+                variant="light"
+                color="gray"
+                aria-label="Disminuir cantidad"
+                disabled={quantity <= 1}
+                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              ><Minus size={20} /></ActionIcon>
+              <Text c="white" size="xl" fw={850} style={{ fontVariantNumeric: "tabular-nums" }}>{quantity}</Text>
+              <ActionIcon
+                size="xl"
+                radius="md"
+                color="red"
+                aria-label="Aumentar cantidad"
+                disabled={quantity >= 99}
+                onClick={() => setQuantity((q) => Math.min(99, q + 1))}
+              ><Plus size={20} /></ActionIcon>
+            </Group>
+          </Box>
 
-                      {isSelected ? (
-                        <span className="text-red-500 font-bold bg-red-600/20 p-1 rounded-full">
-                          <svg
-                            className="w-3 h-3"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={3}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                        </span>
-                      ) : (
-                        <span className="w-5 h-5 rounded-full border border-gray-600 group-hover:border-gray-400" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+          {dish.extras?.length > 0 && (
+            <Box>
+              <Text c="white" size="sm" fw={800} mb="md">Personaliza con adicionales</Text>
+              <Stack gap="sm">
+                {dish.extras.map((extra) => (
+                  <Paper
+                    key={extra.id}
+                    radius="md"
+                    p="md"
+                    onClick={() => toggleExtra(extra.id)}
+                    style={{
+                      cursor: "pointer",
+                      backgroundColor: selectedExtraIds.includes(extra.id) ? "#362126" : "#24252b",
+                      border: "1px solid " + (selectedExtraIds.includes(extra.id) ? "#bc4856" : "#3d3e45"),
+                    }}
+                  >
+                    <Group justify="space-between" wrap="nowrap">
+                      <Checkbox
+                        color="red"
+                        checked={selectedExtraIds.includes(extra.id)}
+                        onChange={() => toggleExtra(extra.id)}
+                        aria-label={`Agregar ${extra.name}`}
+                        label={<Text c="#f5f5f6" size="sm" fw={650}>{extra.name}</Text>}
+                      />
+                      <Text size="sm" fw={750} c="#fda4af" style={{ whiteSpace: "nowrap" }}>
+                        + {money(Number(extra.price))}
+                      </Text>
+                    </Group>
+                  </Paper>
+                ))}
+              </Stack>
+            </Box>
           )}
 
-          <section className="rounded-xl border border-neutral-700 bg-neutral-800 p-4 space-y-4">
-            <h3 className="font-semibold text-white flex items-center gap-2"><Star size={18} /> Reseñas del producto</h3>
-            {reviews.length === 0 && <p className="text-sm text-neutral-400">Todavía no hay reseñas.</p>}
-            {reviews.map((review) => (
-              <div key={review.id} className="border-t border-neutral-700 pt-3 text-sm">
-                <p className="font-medium text-white">{review.customerName || "Cliente"} · {"★".repeat(review.rating)}</p>
-                {review.comment && <p className="mt-1 text-neutral-300 whitespace-pre-wrap">{review.comment}</p>}
-              </div>
-            ))}
-            {isClient && (
-              <div className="border-t border-neutral-700 pt-4 space-y-4">
-                {reviewEligibility === "checking" && <p className="text-sm text-neutral-400">Verificando si puedes calificar este producto…</p>}
-                {reviewEligibility === "ineligible" && (
-                  <div className="rounded-lg border border-neutral-600 bg-neutral-900/50 p-3 text-sm text-neutral-300">
-                    Puedes dejar una reseña de forma opcional después de comprar este plato y recibir tu pedido. Cada cliente puede calificar un producto una vez.
-                  </div>
-                )}
-                {reviewEligibility === "error" && (
-                  <p role="alert" className="text-sm text-amber-400">No pudimos verificar la compra. Inténtalo nuevamente al abrir este producto.</p>
-                )}
-                {reviewEligibility === "eligible" && (
-                  <>
-                    <div>
-                      <p className="mb-2 text-sm font-medium text-neutral-200">¿Qué te pareció este plato?</p>
-                      <div className="flex items-center gap-2" role="group" aria-label="Calificación de 1 a 5 estrellas">
-                        {[1,2,3,4,5].map((value) => (
-                          <button
-                            key={value}
-                            type="button"
-                            title={value + " estrella(s)"}
-                            aria-label={value + " estrella(s)"}
-                            aria-pressed={rating === value}
-                            onClick={() => setRating(value)}
-                            className="rounded-lg p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
-                          >
-                            <Star size={27} className={value <= rating ? "fill-amber-400 text-amber-400" : "text-neutral-500 hover:text-amber-300"} />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <label htmlFor="review-comment" className="block text-sm text-neutral-300">
-                      Comentario (opcional)
-                    </label>
-                    <textarea
-                      id="review-comment"
-                      maxLength={2000}
-                      value={reviewText}
-                      onChange={(event) => setReviewText(event.target.value)}
-                      placeholder="Cuéntanos tu experiencia con este plato"
-                      rows={3}
-                      className="w-full rounded-lg border border-neutral-700 bg-neutral-900 p-3 text-white outline-none focus:border-red-500"
-                    />
-                    <button type="button" disabled={submittingReview} onClick={() => void submitReview()}
-                      className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">
-                      {submittingReview ? "Publicando…" : "Publicar reseña"}
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-            {reviewError && <p role="alert" className="text-sm text-red-400">{reviewError}</p>}
-          </section>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-3 uppercase tracking-wide">
-              Instrucciones Especiales
-            </label>
-            <textarea
+          <Box>
+            <Textarea
+              label="Instrucciones especiales (opcional)"
+              description="Ej. Sin cebolla, salsas aparte…"
+              placeholder="¿Cómo prefieres tu plato?"
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ej: Sin cebolla, salsas aparte..."
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all resize-none h-24"
+              onChange={(event) => setNotes(event.currentTarget.value)}
+              minRows={3}
+              autosize
+              maxLength={500}
+              styles={{
+                label: { color: "#f5f5f6", fontWeight: 750 },
+                description: { color: "#a3a5af" },
+                input: { color: "white", backgroundColor: "#24252b", borderColor: "#454650" },
+              }}
             />
-          </div>
-        </div>
+          </Box>
 
-        <div className="p-6 bg-neutral-900 border-t border-neutral-800 sticky bottom-0 z-10 pb-8 sm:pb-6">
-          <button
-            onClick={handleAddToCart}
-            className="w-full bg-red-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-red-900/40 hover:bg-red-700 hover:shadow-red-900/60 transition-all transform active:scale-[0.98] flex justify-between items-center px-6"
+          <Paper radius="lg" p="lg" style={{ backgroundColor: "#23242a", border: "1px solid #3c3d44" }}>
+            <Group gap="sm" mb="lg">
+              <ThemeIcon color="orange" variant="light" radius="md" size="lg"><Star size={19} /></ThemeIcon>
+              <Box style={{ flex: 1 }}>
+                <Text c="white" fw={800}>Opiniones de clientes</Text>
+                <Text c="#adb0b8" size="xs">Calificaciones de quienes han comprado este plato</Text>
+              </Box>
+              <Badge variant="light" color="gray">{reviews.length}</Badge>
+            </Group>
+            {reviewsLoading && <Text size="sm" c="#aeb1b8">Cargando reseñas…</Text>}
+            {!reviewsLoading && reviews.length === 0 && (
+              <Text size="sm" c="#b8bac4">Este plato aún no tiene reseñas.</Text>
+            )}
+            <Stack gap="md">
+              {reviews.map((review) => (
+                <Box key={review.id} pt="md" style={{ borderTop: "1px solid #3e3f47" }}>
+                  <Group justify="space-between" wrap="wrap">
+                    <Text c="white" fw={750} size="sm">{review.customerName || "Cliente"}</Text>
+                    <Rating value={review.rating} readOnly size="xs" color="yellow" />
+                  </Group>
+                  {review.comment && <Text c="#bec0c9" size="sm" lh={1.7} mt="xs" style={{ whiteSpace: "pre-wrap" }}>{review.comment}</Text>}
+                </Box>
+              ))}
+            </Stack>
+
+            {isClient && (
+              <Box mt="lg" pt="lg" style={{ borderTop: "1px solid #40414a" }}>
+                {reviewEligibility === "checking" && <Text size="sm" c="#aeb1b8">Verificando tu compra…</Text>}
+                {reviewEligibility === "error" && <Alert color="yellow" icon={<AlertCircle size={18}/>}>No pudimos verificar tu compra. Inténtalo nuevamente más tarde.</Alert>}
+                {reviewEligibility === "ineligible" && <Text c="#b9bbc5" size="sm" lh={1.7}>Podrás dejar una reseña opcional después de recibir un pedido que incluya este plato, siempre que no lo hayas calificado antes.</Text>}
+                {reviewEligibility === "eligible" && (
+                  <Stack gap="sm">
+                    <Text c="white" fw={750} size="sm">¿Qué te pareció este plato?</Text>
+                    <Rating value={rating} onChange={setRating} size="lg" color="yellow" />
+                    <Textarea
+                      aria-label="Comentario de la reseña"
+                      placeholder="Tu opinión (opcional)…"
+                      value={reviewText}
+                      onChange={(event) => setReviewText(event.currentTarget.value)}
+                      minRows={3}
+                      autosize
+                      maxLength={2000}
+                      styles={{ input: { color: "white", backgroundColor: "#1a1b20", borderColor: "#454650" } }}
+                    />
+                    <Button color="red" onClick={() => void submitReview()} loading={submittingReview} disabled={rating < 1 || rating > 5}>
+                      Publicar reseña
+                    </Button>
+                  </Stack>
+                )}
+              </Box>
+            )}
+            {reviewError && <Alert color="red" mt="md" icon={<AlertCircle size={17}/>}>{reviewError}</Alert>}
+          </Paper>
+        </Stack>
+
+        <Box
+          p="lg"
+          style={{
+            position: "sticky",
+            bottom: 0,
+            zIndex: 3,
+            backgroundColor: "#1a1b20",
+            borderTop: "1px solid #383941",
+            boxShadow: "0 -10px 25px rgba(0,0,0,.15)",
+          }}
+        >
+          <Button
+            size="lg"
+            color="red"
+            radius="md"
+            fullWidth
+            leftSection={<ShoppingBag size={21} />}
+            onClick={addToCart}
+            styles={{ root: { height: 54 }, label: { width: "100%", justifyContent: "space-between" } }}
           >
-            <span>Agregar al Pedido</span>
-            <span className="bg-black/20 px-3 py-1 rounded-lg tabular-nums">
-              S/ {totalPrice}
-            </span>
-          </button>
-        </div>
-      </div>
-    </div>
+            <Text c="white" fw={800} size="sm">Agregar al pedido</Text>
+            <Text c="white" fw={900} size="sm">{money(totalPrice)}</Text>
+          </Button>
+          <Group justify="center" gap="xs" mt="xs">
+            <CheckCircle2 size={13} color="#94a3b8" />
+            <Text size="xs" c="#9a9ca6">Puedes revisar tu carrito antes de finalizar.</Text>
+          </Group>
+        </Box>
+      </Box>
+    </Drawer>
   );
 }
