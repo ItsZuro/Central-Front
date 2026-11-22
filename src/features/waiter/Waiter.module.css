@@ -1,0 +1,162 @@
+.root {
+  min-height: 100vh;
+  background: #141417;
+  color: #f6f5f7;
+  --mantine-color-text: #f6f5f7;
+  --mantine-color-dimmed: #a8a6b0;
+  --mantine-color-placeholder: #898792;
+  --mantine-color-default: #25252b;
+  --mantine-color-default-border: #414049;
+  --mantine-color-default-hover: #33333b;
+}
+
+.header {
+  border-bottom: 1px solid #34343b;
+  background: #1d1c21;
+}
+
+.panel {
+  background: #222227;
+  border: 1px solid #36363e;
+}
+
+.metric {
+  background: #242429;
+  border: 1px solid #38383f;
+  height: 100%;
+}
+
+.hero {
+  position: relative;
+  background: linear-gradient(115deg, #40242b, #292329 62%, #222327);
+  border: 1px solid #6e3039;
+  overflow: hidden;
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  right: -85px;
+  top: -130px;
+  border-radius: 50%;
+  background: #e03131;
+  opacity: .13;
+  filter: blur(50px);
+  pointer-events: none;
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+}
+
+.orderCard,
+.tableCard {
+  background: #28272d;
+  border: 1px solid #414049;
+  height: 100%;
+}
+
+.tableCard {
+  display: flex;
+  flex-direction: column;
+}
+
+.tableCardFooter {
+  margin-top: auto;
+  padding-top: 20px;
+}
+
+.fieldInput,
+.fieldInput:focus,
+.fieldInput:focus-within {
+  background: #2a2930;
+  border-color: #54515d;
+  color: #f6f5f7;
+}
+
+.fieldInput::placeholder {
+  color: #97939d;
+}
+
+.dropdown {
+  color: #f5f5f7;
+  border: 1px solid #56525c;
+  background: #29282e;
+}
+
+.option {
+  color: #f5f5f7;
+}
+
+.option[data-combobox-selected],
+.option[data-combobox-active] {
+  background: #9f2434;
+}
+
+.fieldLabel {
+  color: #e8e5eb;
+  font-weight: 600;
+}
+
+.modalContent,
+.modalHeader {
+  background: #211f25;
+  color: #f5f5f7;
+}
+
+.modalClose {
+  color: #f5f5f7;
+}
+
+.modalTitle {
+  color: #fff;
+  font-weight: 800;
+}
+
+.transparentLink {
+  text-decoration: none;
+  color: inherit;
+}
+
+.actionCard {
+  width: 100%;
+  border: 1px solid #414049;
+  background: #2a2930;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+
+.actionCard:hover {
+  background: #36323a;
+  border-color: #a84653;
+}
+
+.boardCell {
+  background: #2b2a30;
+  border: 1px solid #44424b;
+  cursor: pointer;
+  transition: background-color .15s ease;
+}
+
+.boardCell:hover {
+  background: #363239;
+}
+
+.productLine {
+  border: 1px solid #47434c;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #2a292f;
+}
+
+.summaryDivider {
+  border-color: #454149;
+}
+
+.dateInput {
+  color-scheme: dark;
+}
