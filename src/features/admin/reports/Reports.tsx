@@ -62,7 +62,7 @@ const paymentMethodLabel = (code: string) => {
     ONLINE: "Pago en línea",
   };
   const normalized = code.trim().toUpperCase();
-  return labels[normalized] || code.replaceAll("_", " ").toLowerCase().replace(/^./, (letter) => letter.toUpperCase());
+  return labels[normalized] || code.replace(/_/g, " ").toLowerCase().replace(/^./, (letter: string) => letter.toUpperCase());
 };
 
 const money = (value: number) =>
