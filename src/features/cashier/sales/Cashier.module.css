@@ -1,0 +1,45 @@
+.root {
+  min-height: 100vh;
+  background: #151418;
+  color: #f8f5f7;
+  --mantine-color-text: #f8f5f7;
+  --mantine-color-dimmed: #aca4af;
+  --mantine-color-default: #29272e;
+  --mantine-color-default-border: #48414c;
+  --mantine-color-default-hover: #433340;
+}
+.header { background: #1d1b21; border-bottom: 1px solid #39323c; }
+.hero {
+  background: linear-gradient(114deg, #47262d, #2d2229 62%, #242126);
+  border: 1px solid #673442;
+  position: relative;
+  overflow: hidden;
+}
+.hero::after { content:""; position:absolute; width:260px; height:260px; background:#f04450; filter:blur(65px); opacity:.14; top:-140px; right:-50px; pointer-events:none; }
+.heroInner { position:relative; z-index:1; }
+.metric { background:#252329; border:1px solid #413a44; height:100%; }
+.panel { background:#242228; border:1px solid #403b44; }
+.ticket { background:#2c2930; border:1px solid #4a424e; }
+.entry { background:#2a272e; border:1px solid #45404a; }
+.fieldInput, .fieldInput:focus, .fieldInput:focus-within { background:#2b2930; color:#f5f0f5; border-color:#57505d; }
+.fieldInput::placeholder { color:#9e96a2; }
+.fieldLabel { color:#eee5ed; font-weight:650; }
+.dropdown { background:#28262d; color:#f8f2f6; border:1px solid #56505c; }
+.option, .option:not([data-disabled]) { background:#28262d; color:#f8f2f6; }
+.option:not([data-disabled]):hover, .option:not([data-disabled])[data-combobox-hovered], .option:not([data-disabled])[data-combobox-active] { background:#503541 !important; color:white !important; }
+.option[data-combobox-selected] { background:#aa3043 !important; color:white !important; }
+.option[data-disabled] { background:#252329 !important; color:#aaa1ad !important; }
+.modalContent, .modalHeader { background:#211f26; color:#f7f4f7; }
+.modalTitle { color:white; font-weight:800; }
+.modalClose { color:#f8f4f8; }
+.root :global(.mantine-Tabs-tab) { color:#e6dfe6; }
+.root :global(.mantine-Tabs-tab:hover) { background:#3c303a !important; color:white !important; }
+.root :global(.mantine-Tabs-tab[data-active]), .root :global(.mantine-Tabs-tab[data-active]:hover) { background:#be3045 !important; color:white !important; }
+.root :global(.mantine-Button-root[data-variant="default"]) { color:#f4eff4; background:#322d36; border-color:#574e59; }
+.root :global(.mantine-Button-root[data-variant="default"]:hover) { color:white !important; background:#4b3a46 !important; }
+.root :global(.mantine-Button-root[data-variant="subtle"]:hover) { color:white !important; background:#45343d !important; }
+.root :global(.mantine-NumberInput-control) { background:#302d34; color:#f5edf3; border-color:#56505d; }
+.root :global(.mantine-NumberInput-control:hover) { background:#533943 !important; color:white !important; }
+.root :global(.mantine-NumberInput-input) { color-scheme: dark; }
+.root :global(.mantine-Tabs-list) { gap:5px; }
+.root :global(.mantine-Pagination-control) { background:#332c36; color:#fff; border-color:#514653; }
