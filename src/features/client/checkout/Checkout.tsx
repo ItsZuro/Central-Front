@@ -92,9 +92,10 @@ export default function CheckoutPage() {
     },
     staleTime: 60_000,
   });
-  const pickupStore = checkoutConfig.data?.stores.find((store) =>
-    store.name.toLocaleLowerCase("es-PE").includes("central") && store.name.toLocaleLowerCase("es-PE").includes("ica")
-  ) || checkoutConfig.data?.stores[0];
+  const pickupStore = checkoutConfig.data?.stores.find((store) => {
+    const name = store.name.toLocaleLowerCase("es-PE");
+    return name.includes("central") && (name.includes("barranco") || name.includes("lima"));
+  }) || checkoutConfig.data?.stores[0];
   const deliveryStore = [...(checkoutConfig.data?.stores ?? [])]
     .filter((store) => Number.isFinite(store.latitude) && Number.isFinite(store.longitude))
     .sort((a, b) => a.id - b.id)[0];
@@ -280,9 +281,10 @@ export default function CheckoutPage() {
       deliveryAddress: orderMode === "delivery" && coordinates ? {
         street: address,
         reference: references,
-        city: "Ica",
-        province: "Ica",
-        zipCode: "11000",
+        city: "Lima",
+        province: "Lima",
+        // No fijar un código postal a Barranco cuando el domicilio puede
+        // estar en otro distrito dentro de la cobertura.
         latitude: coordinates.lat,
         longitude: coordinates.lng,
         instructions: items[0]?.notes || "",
