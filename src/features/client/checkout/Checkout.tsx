@@ -5,14 +5,15 @@ import { orderService } from "@/core/services/order/order.service";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { useCartStore } from "@/core/stores/cart/cart.store";
 import type { OrderRequest } from "@/core/types/order/order.model";
-import { ChevronLeft, LockKeyhole, MapPin, Store, TriangleAlert } from "lucide-react";
+import { ChevronLeft, LockKeyhole, Store, TriangleAlert } from "lucide-react";
 import { Alert, Badge, Box, Group, Paper, SegmentedControl, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import type { ApiResponse } from "@/core/types/base/api-response";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import DeliveryForm from "./components/DeliveryForm";
+import DeliveryForm, { type LocatedAddress } from "./components/DeliveryForm";
+import StorePickupCard from "./components/StorePickupCard";
 import EmptyCartView from "./components/EmptyCartView";
 import MapModal from "./components/MapModal";
 import OrderSummary from "./components/OrderSummary";
@@ -156,6 +157,7 @@ export default function CheckoutPage() {
   // Estados de Interfaz
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
+  const [mapStart, setMapStart] = useState<LocatedAddress | null>(null);
 
   // Cálculos de Totales
   const subtotal = getTotalPrice();
@@ -184,21 +186,32 @@ export default function CheckoutPage() {
     setCoordinates({ lat, lng });
   };
 
-  const handleConfirmMap = () => {
-    if (!coordinates) {
-      toast.error("Por favor selecciona una ubicación en el mapa");
-      return;
-    }
-    // Marcar una ubicación no significa confirmar que haya cobertura:
-    // permitimos cerrar el mapa y comprobamos la ruta antes de crear el pedido.
+  const handleAddressEdit = (typedAddress: string) => {
+    // Nunca enviar coordenadas de una dirección anterior si el usuario la editó.
+    setAddress(typedAddress);
+    setCoordinates(null);
+  };
+
+  const openDeliveryMap = (candidate?: LocatedAddress) => {
+    setMapStart(candidate ?? null);
+    setIsMapOpen(true);
+  };
+
+  const closeDeliveryMap = () => {
     setIsMapOpen(false);
+    setMapStart(null);
+  };
+
+  const handleConfirmMap = (location: LocatedAddress) => {
+    handleLocationSelect(location.address, location.lat, location.lng);
+    closeDeliveryMap();
   };
 
   // --- PROCESO PRINCIPAL DE ORDEN ---
   const handleProcessOrder = () => {
     if (isLoading) return;
     if (orderMode === "delivery" && (!address.trim() || !coordinates)) {
-      return toast.error("Selecciona tu dirección en el mapa para recibir el pedido.");
+      return toast.error("Busca y confirma tu dirección o selecciónala en el mapa para recibir el pedido.");
     }
     if (isClient && orderMode === "delivery" && !canQuoteDelivery) {
       return toast.error("Delivery todavía no está habilitado: falta configurar la ubicación de la sucursal en Lima.");
@@ -563,36 +576,7 @@ export default function CheckoutPage() {
                   </Alert>
                 )}
                 {orderMode === "pickup" && (
-                  <Alert
-                    mt="lg"
-                    radius="md"
-                    icon={<MapPin size={19} />}
-                    title="Punto de recogida"
-                    styles={{
-                      root: { background: "#29242a", border: "1px solid #453940" },
-                      icon: { color: "#d6b178" },
-                      title: { color: "#f1debd", fontWeight: 800 },
-                      message: { color: "#c9bbc4", lineHeight: 1.6 },
-                    }}
-                  >
-                    {pickupStore ? (
-                      <Text size="sm" c="#c9bbc4">
-                        <Text span fw={750} c="#fff">
-                          {pickupStore.name.replace(/\s*\((?:pruebas?|tests?|demo)\)/gi, "").trim()}
-                        </Text>
-                        {pickupStore.address && !/prueba|test|demo|pendiente|fictici/i.test(pickupStore.address)
-                          ? <> — {pickupStore.address}.</>
-                          : "."}
-                        {" "}Podrás consultar el estado de preparación en Mis pedidos.
-                      </Text>
-                    ) : (
-                      <Text size="sm" c="#c9bbc4">
-                        {isClient
-                          ? "No hay una sede de recogida disponible en este momento."
-                          : "Recoge tu pedido en el restaurante. Podrás consultar los datos de la sede al iniciar sesión."}
-                      </Text>
-                    )}
-                  </Alert>
+                  <StorePickupCard store={pickupStore} isClient={isClient} />
                 )}
               </Box>
             </Paper>
@@ -605,7 +589,9 @@ export default function CheckoutPage() {
               phone={phone}
               docType={docType}
               docNumber={docNumber}
-              onOpenMap={() => setIsMapOpen(true)}
+              onOpenMap={openDeliveryMap}
+              onAddressChange={handleAddressEdit}
+              onSelectLocation={handleLocationSelect}
               setReferences={setReferences}
               setPhone={setPhone}
               setDocType={setDocType}
@@ -714,11 +700,11 @@ export default function CheckoutPage() {
 
       <MapModal
         isOpen={isMapOpen && orderMode === "delivery"}
-        onClose={() => setIsMapOpen(false)}
+        onClose={closeDeliveryMap}
         onConfirm={handleConfirmMap}
-        onLocationSelect={handleLocationSelect}
-        initialLat={coordinates?.lat}
-        initialLng={coordinates?.lng}
+        initialAddress={mapStart?.address ?? address}
+        initialLat={mapStart?.lat ?? coordinates?.lat}
+        initialLng={mapStart?.lng ?? coordinates?.lng}
       />
     </section>
   );
