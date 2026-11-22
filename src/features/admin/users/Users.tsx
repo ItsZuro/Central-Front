@@ -6,6 +6,7 @@ import axios from "axios";
 import { AlertCircle, Pencil, Plus, Search, ShieldCheck, UserRoundCheck, UsersRound } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "react-toastify";
+import { Link } from "react-router-dom";
 
 interface AdminUser {
   id: number;
@@ -99,6 +100,7 @@ export default function Users() {
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!editing) return;
+    if (editing.id === currentUserId) return setError("Tu cuenta se edita desde Mi perfil.");
     if (!form.username.trim() || !form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) return setError("Completa los campos obligatorios.");
     if (editing.id === currentUserId && !form.enabled) return setError("No puedes desactivar tu propia cuenta.");
     setSaving(true);
@@ -204,7 +206,19 @@ export default function Users() {
                   <Table.Td><Group gap={5}>{user.roles?.length ? user.roles.map((role) => <Badge size="sm" variant="light" color="red" key={role}>{roleName(role)}</Badge>) : <Text c="dimmed">—</Text>}</Group></Table.Td>
                   <Table.Td><Text size="xs" c="dimmed">{user.provider || "—"}</Text></Table.Td>
                   <Table.Td><Badge variant="light" color={user.enabled ? "green" : "gray"}>{user.enabled ? "Activo" : "Inactivo"}</Badge></Table.Td>
-                  <Table.Td ta="right"><Button variant="light" size="xs" color="gray" leftSection={<Pencil size={14}/>} onClick={() => openEdit(user)}>Editar</Button></Table.Td>
+                  <Table.Td ta="right">
+                    {user.id === currentUserId ? (
+                      <Button component={Link} to="/admin/profile" color="red" variant="light"
+                        size="xs" leftSection={<Pencil size={14}/>}>
+                        Mi perfil
+                      </Button>
+                    ) : (
+                      <Button variant="light" size="xs" color="gray"
+                        leftSection={<Pencil size={14}/>} onClick={() => openEdit(user)}>
+                        Editar
+                      </Button>
+                    )}
+                  </Table.Td>
                 </Table.Tr>
               ))}</Table.Tbody>
             </Table>
