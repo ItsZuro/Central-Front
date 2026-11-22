@@ -508,7 +508,10 @@ export default function Profile() {
             <PasswordInput
               label="Contraseña actual"
               value={password.current}
-              onChange={(event) => setPassword((value) => ({ ...value, current: event.currentTarget.value }))}
+              onChange={(event) => {
+                const nextValue = event.currentTarget.value;
+                setPassword((previous) => ({ ...previous, current: nextValue }));
+              }}
               classNames={inputClasses}
               required
             />
@@ -516,7 +519,10 @@ export default function Profile() {
           <PasswordInput
             label="Nueva contraseña"
             value={password.next}
-            onChange={(event) => setPassword((value) => ({ ...value, next: event.currentTarget.value }))}
+            onChange={(event) => {
+                const nextValue = event.currentTarget.value;
+                setPassword((previous) => ({ ...previous, next: nextValue }));
+              }}
             classNames={inputClasses}
             description="Mínimo 8 caracteres"
             required
@@ -524,7 +530,10 @@ export default function Profile() {
           <PasswordInput
             label="Confirmar contraseña"
             value={password.confirmation}
-            onChange={(event) => setPassword((value) => ({ ...value, confirmation: event.currentTarget.value }))}
+            onChange={(event) => {
+                const nextValue = event.currentTarget.value;
+                setPassword((previous) => ({ ...previous, confirmation: nextValue }));
+              }}
             classNames={inputClasses}
             required
           />
