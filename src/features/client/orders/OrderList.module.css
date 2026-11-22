@@ -1,0 +1,52 @@
+/* Mantine: superficie oscura consistente con Restaurant Central. */
+.filterInput {
+  background: #242026 !important;
+  border: 1px solid #58424d !important;
+  color: #f9f2f5 !important;
+  font-weight: 600;
+  border-radius: 11px;
+}
+.filterInput:focus, .filterInput:focus-within {
+  border-color: #ea5964 !important;
+}
+.filterLabel { color: #dcd0d6 !important; font-weight: 700; }
+.filterDropdown {
+  background: #252025 !important;
+  border: 1px solid #664851 !important;
+  border-radius: 11px !important;
+  padding: 6px !important;
+  box-shadow: 0 14px 40px rgba(0,0,0,.4);
+}
+.filterOption {
+  color: #eee2e7 !important;
+  background: transparent !important;
+  border-radius: 8px;
+  font-weight: 600;
+}
+.filterOption:hover, .filterOption[data-combobox-active] {
+  color: #fff !important;
+  background: #483139 !important;
+}
+.filterOption[data-combobox-selected], .filterOption[data-selected] {
+  color: #fff !important;
+  background: #76323b !important;
+}
+.filterOption[data-combobox-selected]:hover { background: #943c48 !important; }
+.filterSection { color: #b9aab1 !important; }
+.pageControl {
+  background: #292328 !important;
+  color: #e9dfe4 !important;
+  border: 1px solid #5a444b !important;
+  font-weight: 700;
+}
+.pageControl:hover:not(:disabled):not([data-disabled]) {
+  background: #473039 !important;
+  color: #fff !important;
+}
+.pageControl[data-active] {
+  background: #cd3541 !important;
+  border-color: #e65a67 !important;
+  color: #fff !important;
+}
+.pageControl:disabled, .pageControl[data-disabled] { opacity: .45; }
+.pageDots { color: #a998a1 !important; }
