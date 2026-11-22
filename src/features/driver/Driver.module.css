@@ -1,0 +1,110 @@
+.root {
+  min-height: 100vh;
+  background: #151418;
+  color: #f8f5f9;
+  --mantine-color-text: #f8f5f9;
+  --mantine-color-dimmed: #b7aeba;
+  --mantine-color-default: #2b2931;
+  --mantine-color-default-border: #504953;
+  --mantine-color-default-hover: #443840;
+}
+.header {
+  background: #1e1c22;
+  border-bottom: 1px solid #37313a;
+}
+.hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(110deg, #472831 0%, #30232c 57%, #242329 100%);
+  border: 1px solid #7b3d4b;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  top: -130px;
+  right: -80px;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  filter: blur(55px);
+  background: #f04459;
+  opacity: .15;
+  pointer-events: none;
+}
+.heroContent { position: relative; z-index: 1; }
+.metric { height: 100%; background: #252329; border: 1px solid #413b46; }
+.panel { background: #201f24; border: 1px solid #39353e; }
+.deliveryCard {
+  height: 100%;
+  background: #29272e;
+  border: 1px solid #49424e;
+  transition: background .15s ease, border-color .15s ease;
+}
+.deliveryCard:hover { background: #302b33; border-color: #a8495b; }
+.productLine {
+  background: #242228;
+  border: 1px solid #403943;
+  border-radius: 10px;
+  padding: 9px 12px;
+}
+.note {
+  background: #3a302c;
+  border-left: 3px solid #e8b66c;
+  padding: 9px 12px;
+  border-radius: 8px;
+}
+.emptyState { background: #242228; border: 1px dashed #56505b; }
+.segmented {
+  background: #2b2730;
+  border: 1px solid #534a57;
+}
+.segmented :global(.mantine-SegmentedControl-label) {
+  color: #f0e8f1;
+}
+.segmented :global(.mantine-SegmentedControl-label:hover) {
+  color: #fff !important;
+  background: #493841 !important;
+}
+.segmented :global(.mantine-SegmentedControl-indicator) {
+  background: #b93247;
+}
+.segmented :global(.mantine-SegmentedControl-label[data-active]) {
+  color: #fff !important;
+}
+.root :global(.mantine-Button-root[data-variant="default"]) {
+  color: #f7f1f7;
+  background: #322e37;
+  border-color: #544c57;
+}
+.root :global(.mantine-Button-root[data-variant="default"]:hover) {
+  color: #fff !important;
+  background: #4a3a46 !important;
+}
+.root :global(.mantine-Button-root[data-variant="subtle"]) { color: #e4dae4; }
+.root :global(.mantine-Button-root[data-variant="subtle"]:hover) {
+  color: #fff !important;
+  background: #44343e !important;
+}
+.root :global(.mantine-Alert-message),
+.root :global(.mantine-Alert-title) {
+  color: #eff1f6 !important;
+}
+.modalContent, .modalHeader { background: #242128; color: #f8f2f7; }
+.modalContent {
+  color-scheme: dark;
+  --mantine-color-text: #f8f2f7;
+  --mantine-color-dimmed: #bdb1bf;
+  --mantine-color-default: #33303a;
+  --mantine-color-default-border: #5a505f;
+}
+.modalTitle { color: #fff; font-weight: 800; }
+.modalClose { color: #fff; }
+.modalContent :global(.mantine-Button-root[data-variant="default"]) {
+  background: #343039 !important;
+  border: 1px solid #645666 !important;
+  color: #fff !important;
+}
+.modalContent :global(.mantine-Button-root[data-variant="default"]:hover) {
+  background: #4e404c !important;
+  color: #fff !important;
+}
