@@ -79,6 +79,7 @@ export default function Users() {
   const [scheduleUser, setScheduleUser] = useState<AdminUser | null>(null);
   const [scheduleWeek, setScheduleWeek] = useState<WeeklyDay[]>(initialWeek());
   const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleReady, setScheduleReady] = useState(false);
   const [scheduleSaving, setScheduleSaving] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
   const [form, setForm] = useState<UserForm>({
@@ -119,6 +120,7 @@ export default function Users() {
     if (user.roles.includes("ROLE_ADMIN")) return;
     setScheduleUser(user);
     setScheduleLoading(true);
+    setScheduleReady(false);
     setScheduleError("");
     try {
       const response = await api.get<{ success: boolean; message: string; data: StaffShift[] }>(
@@ -126,6 +128,7 @@ export default function Users() {
       );
       if (!response.data.success) throw new Error(response.data.message);
       setScheduleWeek(fromShifts(response.data.data || []));
+      setScheduleReady(true);
     } catch (err) {
       setScheduleError(errorMessage(err));
     } finally {
@@ -135,7 +138,7 @@ export default function Users() {
 
   const saveSchedule = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!scheduleUser) return;
+    if (!scheduleUser || !scheduleReady) return;
     const validation = validateWeek(scheduleWeek);
     if (validation) { setScheduleError(validation); return; }
     setScheduleSaving(true);
@@ -335,13 +338,13 @@ export default function Users() {
             {scheduleLoading ? (
               <Group justify="center" py="xl"><Loader color="red"/><Text size="sm">Cargando turnos...</Text></Group>
             ) : (
-              <WeeklyScheduleEditor value={scheduleWeek} onChange={setScheduleWeek} disabled={scheduleSaving || !!scheduleError && !scheduleWeek.length}/>
+              scheduleReady ? <WeeklyScheduleEditor value={scheduleWeek} onChange={setScheduleWeek} disabled={scheduleSaving}/> : null
             )}
             {scheduleError && <Alert color="red" icon={<AlertCircle size={17}/>} title="No se pudo cargar o guardar el horario">{scheduleError}</Alert>}
             <Group justify="flex-end">
               <Button variant="default" disabled={scheduleSaving}
                 onClick={() => {setScheduleUser(null);setScheduleError("");}}>Cancelar</Button>
-              <Button type="submit" disabled={scheduleLoading || scheduleWeek.length === 0 || !!scheduleError && !scheduleWeek.some((day) => day.enabled)}
+              <Button type="submit" disabled={scheduleLoading || !scheduleReady}
                 loading={scheduleSaving}>Guardar horario</Button>
             </Group>
           </Stack>
