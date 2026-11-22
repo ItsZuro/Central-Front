@@ -10,7 +10,7 @@ export default function AuthLayout() {
   if (accessToken && user) {
     const priority = [
       "ROLE_ADMIN", "ROLE_MANAGER", "ROLE_CHEF", "ROLE_CASHIER",
-      "ROLE_WAITER", "ROLE_SUPPLIER", "ROLE_CLIENT",
+      "ROLE_WAITER", "ROLE_DRIVER", "ROLE_SUPPLIER", "ROLE_CLIENT",
     ];
     const role = priority.find((candidate) => user.roles?.includes(candidate));
     if (role) return <Navigate to={roleDefaultRoutes[role]} replace />;
