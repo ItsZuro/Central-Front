@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { orderService } from "@/core/services/order/order.service";
 import type { OrderResponse } from "@/core/types/order/order.model";
 
@@ -13,6 +14,7 @@ export default function AssignedDeliveries() {
     setError("");
     try {
       const response = await orderService.getAssignedDeliveries();
+      if (!response.success) throw new Error(response.message);
       setOrders(response.data ?? []);
     } catch {
       setError("No se pudieron consultar los repartos asignados.");
@@ -41,6 +43,7 @@ export default function AssignedDeliveries() {
       <div className="mx-auto max-w-4xl">
         <div className="flex items-center justify-between gap-4 mb-8">
           <div>
+            <Link to="/waiter" className="mb-3 inline-block text-sm font-semibold text-red-300 hover:text-red-200">← Volver al panel del personal</Link>
             <h1 className="text-3xl font-bold">Mis repartos asignados</h1>
             <p className="text-neutral-400 mt-2">Pedidos vinculados a tu cuenta de empleado.</p>
           </div>
@@ -50,7 +53,8 @@ export default function AssignedDeliveries() {
           </button>
         </div>
         {error && <p role="alert" className="mb-5 rounded bg-red-950 p-3 text-red-200">{error}</p>}
-        {!loading && orders.length === 0 && <p className="text-neutral-400">No tienes repartos asignados.</p>}
+        {loading && orders.length === 0 && <p className="text-neutral-400">Cargando repartos...</p>}
+        {!loading && orders.length === 0 && !error && <p className="text-neutral-400">No tienes repartos asignados.</p>}
         <div className="space-y-4">
           {orders.map((order) => (
             <article key={order.id} className="rounded-xl border border-neutral-700 bg-neutral-900 p-5">
@@ -67,6 +71,9 @@ export default function AssignedDeliveries() {
                     href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
                       `${order.deliveryLatitude},${order.deliveryLongitude}`
                     )}`}>Ver ruta</a>
+                )}
+                {order.statusCode === "IN_PROGRESS" && (
+                  <p className="text-sm text-amber-300">En preparación: espera a que cocina marque el pedido como listo.</p>
                 )}
                 {order.statusCode === "READY_FOR_PICKUP" && (
                   <button disabled={busyId === order.id} type="button"
