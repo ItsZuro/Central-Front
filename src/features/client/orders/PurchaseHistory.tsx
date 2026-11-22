@@ -74,6 +74,22 @@ const STATUS_CONFIG: Record<
   },
 };
 
+// El backend envía el tipo traducido (p. ej., "Para Llevar"),
+// no un código técnico. Normalizar antes de elegir el seguimiento.
+const resolveOrderType = (name: string): string => {
+  const normalized = name.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  if (normalized.includes("LLEVAR") || normalized.includes("RECOG") || normalized.includes("PICKUP") || normalized.includes("TAKE_AWAY")) {
+    return "TAKE_AWAY";
+  }
+  if (normalized.includes("DELIVERY") || normalized.includes("DOMICILIO") || normalized.includes("ENTREGA")) {
+    return "DELIVERY";
+  }
+  if (normalized.includes("MESA") || normalized.includes("SALON") || normalized.includes("DINE_IN")) {
+    return "DINE_IN";
+  }
+  return "DELIVERY";
+};
+
 const TYPE_CONFIG: Record<string, { label: string; icon: LucideIcon }> = {
   DELIVERY: { label: "Delivery", icon: Bike },
   TAKE_AWAY: { label: "Para Llevar", icon: ShoppingBag },
@@ -260,7 +276,7 @@ export default function PurchaseHistory() {
               icon: Clock,
             };
 
-            const typeKey = order.typeName.toUpperCase().replace(" ", "_");
+            const typeKey = resolveOrderType(order.typeName);
             const typeInfo = TYPE_CONFIG[typeKey] || {
               label: order.typeName,
               icon: ShoppingBag,
