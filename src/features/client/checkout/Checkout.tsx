@@ -67,7 +67,8 @@ export default function CheckoutPage() {
   const [orderMode, setOrderMode] = useState<OrderMode>(draft?.orderMode || "pickup");
   // Borradores antiguos con Yape deben entrar a Niubiz, no registrar un pago sin cobrar.
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cash">(
-    draft?.paymentMethod === "yape" ? "card" : (draft?.paymentMethod || "cash")
+    draft?.orderMode === "delivery" || draft?.paymentMethod === "yape"
+      ? "card" : (draft?.paymentMethod || "cash")
   );
 
   // Identificadores reales del backend: nunca asumir que los IDs coinciden con
@@ -210,6 +211,9 @@ export default function CheckoutPage() {
   // --- PROCESO PRINCIPAL DE ORDEN ---
   const handleProcessOrder = () => {
     if (isLoading) return;
+    if (orderMode === "delivery" && paymentMethod !== "card") {
+      return toast.error("Los pedidos delivery requieren pago anticipado con Niubiz.");
+    }
     if (orderMode === "delivery" && (!address.trim() || !coordinates)) {
       return toast.error("Busca y confirma tu dirección o selecciónala en el mapa para recibir el pedido.");
     }
@@ -523,7 +527,10 @@ export default function CheckoutPage() {
                   radius="md"
                   h={51}
                   value={orderMode}
-                  onChange={(value) => setOrderMode(value as OrderMode)}
+                  onChange={(value) => {
+                    setOrderMode(value as OrderMode);
+                    if (value === "delivery") setPaymentMethod("card");
+                  }}
                   data={[
                     { value: "pickup", label: "Recoger en tienda" },
                     { value: "delivery", label: "Delivery" },
@@ -646,8 +653,11 @@ export default function CheckoutPage() {
             )}
 
             <PaymentSelector
-              selectedMethod={paymentMethod}
-              onSelect={setPaymentMethod}
+              selectedMethod={orderMode === "delivery" ? "card" : paymentMethod}
+              onSelect={(choice) => {
+                if (orderMode === "delivery" && choice === "cash") return;
+                setPaymentMethod(choice);
+              }}
               pickupMode={orderMode === "pickup"}
             />
 
