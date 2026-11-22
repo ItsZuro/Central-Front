@@ -3,7 +3,7 @@ import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { Alert, Avatar, Badge, Box, Button, Checkbox, Divider, Group, Loader, Modal, Paper, PasswordInput, Select, SimpleGrid, Stack, Table, Text, TextInput, ThemeIcon, Title } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import axios from "axios";
-import { AlertCircle, Clock3, KeyRound, Pencil, Plus, Search, ShieldCheck, UserRoundCheck, UsersRound } from "lucide-react";
+import { AlertCircle, Clock3, KeyRound, Pencil, Plus, Search, ShieldCheck, UserCheck, UserRoundCheck, UsersRound, UserX } from "lucide-react";
 import WeeklyScheduleEditor, { initialWeek, fromShifts, toShifts, validateWeek, type StaffShift, type WeeklyDay } from "./WeeklyScheduleEditor";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "react-toastify";
@@ -88,6 +88,9 @@ export default function Users() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordError, setPasswordError] = useState("");
+  const [statusUser, setStatusUser] = useState<AdminUser | null>(null);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [statusError, setStatusError] = useState("");
   const [form, setForm] = useState<UserForm>({
     username: "", email: "", firstName: "", lastName: "", phone: "", enabled: true,
   });
@@ -222,6 +225,29 @@ export default function Users() {
     }
   };
 
+  const changeStaffStatus = async () => {
+    if (!statusUser || statusSaving || isCurrentAccount(statusUser)
+      || statusUser.roles?.includes("ROLE_ADMIN")) return;
+    setStatusSaving(true);
+    setStatusError("");
+    const enable = !statusUser.enabled;
+    try {
+      const response = await api.patch<{ success: boolean; message: string }>(
+        "users/admin/" + statusUser.id + "/status",
+        { enabled: enable }
+      );
+      if (!response.data.success) throw new Error(response.data.message);
+      setStatusUser(null);
+      toast.success(enable ? "Cuenta reactivada. El empleado puede ingresar según su horario."
+        : "Cuenta dada de baja. Se revocaron sus sesiones.");
+      await load();
+    } catch (err) {
+      setStatusError(errorMessage(err));
+    } finally {
+      setStatusSaving(false);
+    }
+  };
+
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!editing) return;
@@ -321,7 +347,7 @@ export default function Users() {
             <Text size="sm" c="dimmed">Prueba con otro usuario, correo o nombre.</Text>
           </Stack>
         ) : (
-          <Table.ScrollContainer minWidth={850}>
+          <Table.ScrollContainer minWidth={1010}>
             <Table highlightOnHover verticalSpacing="md" horizontalSpacing="lg">
               <Table.Thead><Table.Tr>
                 <Table.Th>Usuario</Table.Th><Table.Th>Correo</Table.Th><Table.Th>Roles</Table.Th><Table.Th>Proveedor</Table.Th><Table.Th>Estado</Table.Th><Table.Th ta="right">Acciones</Table.Th>
@@ -354,6 +380,16 @@ export default function Users() {
                           leftSection={<Pencil size={14}/>} onClick={() => openEdit(user)}>
                           Editar
                         </Button>
+                        {!user.roles?.includes("ROLE_ADMIN") && (
+                          <Button
+                            variant="light" size="xs"
+                            color={user.enabled ? "orange" : "green"}
+                            leftSection={user.enabled ? <UserX size={14}/> : <UserCheck size={14}/>}
+                            onClick={() => { setStatusError(""); setStatusUser(user); }}
+                          >
+                            {user.enabled ? "Dar de baja" : "Reactivar"}
+                          </Button>
+                        )}
                       </Group>
                     )}
                   </Table.Td>
@@ -363,6 +399,39 @@ export default function Users() {
           </Table.ScrollContainer>
         )}
       </Paper>
+
+      <Modal
+        opened={statusUser !== null}
+        onClose={() => { if (!statusSaving) { setStatusUser(null); setStatusError(""); } }}
+        closeOnEscape={!statusSaving}
+        closeOnClickOutside={!statusSaving}
+        size="md" centered
+        title={statusUser?.enabled ? "Confirmar baja de personal" : "Reactivar cuenta de personal"}
+      >
+        <Stack gap="md">
+          <Alert
+            color={statusUser?.enabled ? "orange" : "green"}
+            icon={statusUser?.enabled ? <UserX size={18}/> : <UserCheck size={18}/>}
+            title={statusUser?.firstName + " " + statusUser?.lastName}
+          >
+            {statusUser?.enabled
+              ? "La cuenta dejará de poder iniciar sesión y se revocarán las sesiones abiertas. Se conservarán sus pedidos, horarios y registros históricos."
+              : "La cuenta volverá a estar habilitada. El empleado deberá iniciar sesión nuevamente y respetar su horario asignado."}
+          </Alert>
+          {statusError && <Alert color="red" icon={<AlertCircle size={18}/>}>{statusError}</Alert>}
+          <Group justify="flex-end">
+            <Button variant="default" disabled={statusSaving}
+              onClick={() => { setStatusUser(null); setStatusError(""); }}>Cancelar</Button>
+            <Button
+              color={statusUser?.enabled ? "red" : "green"}
+              loading={statusSaving}
+              onClick={() => void changeStaffStatus()}
+            >
+              {statusUser?.enabled ? "Confirmar baja" : "Confirmar reactivación"}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <Modal opened={creating} size="xl" title="Nuevo usuario de personal" onClose={() => {if (!saving) {setCreating(false); setError("");}}} centered>
         <form onSubmit={(event) => void createStaff(event)}>
@@ -479,7 +548,7 @@ export default function Users() {
               <TextInput label="Apellidos" required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.currentTarget.value })}/>
             </SimpleGrid>
             <TextInput label="Teléfono" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.currentTarget.value })}/>
-            <Checkbox color="red" label="Cuenta activa" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.currentTarget.checked })}/>
+            <Text size="xs" c="dimmed">El estado de la cuenta se administra desde la acción «Dar de baja» o «Reactivar» del directorio.</Text>
             {editing && !editing.roles?.includes("ROLE_ADMIN") && (
               <Group justify="space-between" gap="sm" wrap="wrap">
                 <Text size="xs" c="dimmed">¿El empleado olvidó su contraseña?</Text>
