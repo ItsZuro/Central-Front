@@ -93,3 +93,31 @@
 .cta:disabled { background: #5a4448 !important; }
 @media (max-width: 1000px) { .grid { grid-template-columns: minmax(0,1fr); } .summary { position: static; } }
 @media (max-width: 600px) { .page { padding: 92px 14px 50px; } .panelInner { padding: 20px 18px; } .stepTrack { gap: 5px; } .step { padding: 7px 10px; } .summaryTop,.summaryBody,.summaryFooter { padding-left: 18px; padding-right: 18px; } .payOption { min-height: 108px; } }
+
+/* Tarjeta compacta de ubicación de sucursal y direcciones confirmadas. */
+.locationCard {
+  background: linear-gradient(125deg, #30272d, #252127);
+  border: 1px solid #50424b;
+  border-radius: 14px;
+  padding: 18px;
+}
+.locationIcon {
+  flex-shrink: 0;
+  width: 37px;
+  height: 37px;
+  border: 1px solid #654248;
+  border-radius: 11px;
+  color: #f5a1a5;
+  background: rgba(241, 89, 99, .11);
+  display: grid;
+  place-items: center;
+}
+.previewFrame {
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid #51464e;
+  background: #171518;
+}
+@media (max-width: 600px) {
+  .locationCard { padding: 14px; }
+}
