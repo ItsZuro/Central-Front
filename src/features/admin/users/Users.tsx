@@ -54,7 +54,17 @@ function errorMessage(error: unknown): string {
 }
 
 export default function Users() {
-  const currentUserId = useAuthStore((state) => state.user?.id);
+  const currentUser = useAuthStore((state) => state.user);
+  // La sesión persistida puede tener un ID ausente o representado como texto.
+  // Usar también el username único para reconocer la propia cuenta.
+  const isCurrentAccount = (account: AdminUser) => {
+    if (!currentUser) return false;
+    const sameId = currentUser.id != null && Number(currentUser.id) === account.id;
+    const sameUsername =
+      !!currentUser.username &&
+      currentUser.username.trim().toLowerCase() === account.username.trim().toLowerCase();
+    return sameId || sameUsername;
+  };
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebouncedValue(search, 180);
@@ -89,6 +99,7 @@ export default function Users() {
   ), [users, debouncedSearch]);
 
   const openEdit = (user: AdminUser) => {
+    if (isCurrentAccount(user)) return;
     setError("");
     setEditing(user);
     setForm({
@@ -100,9 +111,8 @@ export default function Users() {
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!editing) return;
-    if (editing.id === currentUserId) return setError("Tu cuenta se edita desde Mi perfil.");
+    if (isCurrentAccount(editing)) return setError("Tu cuenta se edita desde Mi perfil.");
     if (!form.username.trim() || !form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) return setError("Completa los campos obligatorios.");
-    if (editing.id === currentUserId && !form.enabled) return setError("No puedes desactivar tu propia cuenta.");
     setSaving(true);
     setError("");
     try {
@@ -207,7 +217,7 @@ export default function Users() {
                   <Table.Td><Text size="xs" c="dimmed">{user.provider || "—"}</Text></Table.Td>
                   <Table.Td><Badge variant="light" color={user.enabled ? "green" : "gray"}>{user.enabled ? "Activo" : "Inactivo"}</Badge></Table.Td>
                   <Table.Td ta="right">
-                    {user.id === currentUserId ? (
+                    {isCurrentAccount(user) ? (
                       <Button component={Link} to="/admin/profile" color="red" variant="light"
                         size="xs" leftSection={<Pencil size={14}/>}>
                         Mi perfil
@@ -254,7 +264,7 @@ export default function Users() {
               <TextInput label="Apellidos" required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.currentTarget.value })}/>
             </SimpleGrid>
             <TextInput label="Teléfono" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.currentTarget.value })}/>
-            <Checkbox color="red" label={editing?.id === currentUserId ? "Tu propia cuenta debe permanecer activa" : "Cuenta activa"} checked={form.enabled} disabled={editing?.id === currentUserId} onChange={(e) => setForm({ ...form, enabled: e.currentTarget.checked })}/>
+            <Checkbox color="red" label="Cuenta activa" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.currentTarget.checked })}/>
             {error && <Alert color="red">{error}</Alert>}
             <Group justify="flex-end"><Button variant="default" disabled={saving} onClick={() => setEditing(null)}>Cancelar</Button><Button type="submit" loading={saving}>Guardar cambios</Button></Group>
           </Stack>
