@@ -13,7 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle, ArrowLeft, ArrowRight, BellRing, CalendarDays, CheckCircle2,
   ChefHat, ClipboardList, Clock3, Coffee, LayoutDashboard, LogOut, MapPin,
-  Plus, RefreshCw, Search, Sparkles, Truck, Users, UtensilsCrossed,
+  RefreshCw, Search, Sparkles, Truck, Users, UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -60,7 +60,6 @@ const activeReservation = (reservation: Reservation) =>
   reservation.status === "CONFIRMED" || reservation.status === "PENDING";
 const money = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" });
 
-const surface = { background: "#222227", borderColor: "#39363e" };
 const muted = "#aba6b1";
 const inputClasses = { input: styles.fieldInput, label: styles.fieldLabel };
 
