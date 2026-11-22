@@ -9,7 +9,7 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import {
-  AlertCircle, CalendarDays, ClipboardList, Clock3, History, LockKeyhole,
+  AlertCircle, CalendarDays, ClipboardList, Clock3, History, LockKeyhole, MessageSquareText,
   RefreshCw, Search, ShieldCheck, UserCheck, UserRound, UserX, UsersRound,
 } from "lucide-react";
 import { useState } from "react";
@@ -27,8 +27,9 @@ type Order = { id: number; date: string; total: number; typeName: string; status
 type Reservation = { id: number; reservationDate: string; reservationTime: string;
   tableNumber: string; numberOfPeople: number; status: string };
 type AccountAction = { id: number; actorUserId: number; action: string; reason: string; occurredAt: string };
+type ContactMessage = { id: number; subject: string; message: string; createdAt: string };
 type StatusFilter = "all" | "active" | "suspended";
-type DetailTab = "orders" | "reservations" | "actions";
+type DetailTab = "orders" | "reservations" | "messages" | "actions";
 type StatusTarget = { customer: Customer; enabled: boolean };
 
 const money = (value: number) =>
@@ -72,6 +73,7 @@ export default function Customers() {
   const [tab, setTab] = useState<DetailTab>("orders");
   const [orderPage, setOrderPage] = useState(1);
   const [reservationPage, setReservationPage] = useState(1);
+  const [messagePage, setMessagePage] = useState(1);
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
   const [reason, setReason] = useState("");
 
@@ -127,6 +129,18 @@ export default function Customers() {
       return response.data.data;
     },
   });
+  const messagesQuery = useQuery({
+    queryKey: ["management", "customers", selectedId, "messages", messagePage],
+    enabled: selectedId !== null && tab === "messages",
+    queryFn: async () => {
+      const response = await api.get<ApiResponse<Page<ContactMessage>>>(
+        "customer-management/" + selectedId + "/messages",
+        { params: { page: messagePage - 1, size: 6 } }
+      );
+      if (!response.data.success) throw new Error(response.data.message);
+      return response.data.data;
+    },
+  });
   const actionsQuery = useQuery({
     queryKey: ["management", "customers", selectedId, "actions"],
     enabled: selectedId !== null && tab === "actions",
@@ -161,6 +175,7 @@ export default function Customers() {
     setTab("orders");
     setOrderPage(1);
     setReservationPage(1);
+    setMessagePage(1);
   };
   const openStatus = (customer: Customer) => {
     setReason("");
@@ -320,6 +335,7 @@ export default function Customers() {
                 <Tabs.List grow>
                   <Tabs.Tab value="orders" leftSection={<ClipboardList size={15}/>}>Pedidos</Tabs.Tab>
                   <Tabs.Tab value="reservations" leftSection={<CalendarDays size={15}/>}>Reservas</Tabs.Tab>
+                  <Tabs.Tab value="messages" leftSection={<MessageSquareText size={15}/>}>Mensajes</Tabs.Tab>
                   <Tabs.Tab value="actions" leftSection={<History size={15}/>}>Actividad</Tabs.Tab>
                 </Tabs.List>
               </Tabs>
@@ -370,6 +386,29 @@ export default function Customers() {
                 {(reservationsQuery.data?.totalPages || 0) > 1 &&
                   <Center><Pagination value={reservationPage} total={reservationsQuery.data?.totalPages || 1}
                     color="red" onChange={setReservationPage} size="sm"/></Center>}
+              </Stack>}
+              {tab === "messages" && <Stack gap="sm">
+                <Text c="dimmed" size="xs">
+                  Mensajes enviados por el cliente al restaurante. Esta vista no altera su estado ni envía respuestas.
+                </Text>
+                {messagesQuery.isPending ? <Center py={35}><Loader size="sm" color="red"/></Center> :
+                  messagesQuery.isError ? <Alert color="red">{errorMessage(messagesQuery.error)}</Alert> :
+                  !messagesQuery.data?.content.length ?
+                    <EmptyList title="Sin mensajes" description="Este cliente aún no ha enviado consultas."/> :
+                  messagesQuery.data.content.map((message) => (
+                    <Paper key={message.id} p="md" withBorder radius="md">
+                      <Group justify="space-between" mb="xs">
+                        <Text size="sm" fw={800}>{message.subject}</Text>
+                        <Text size="xs" c="dimmed">{dateTimeLabel(message.createdAt)}</Text>
+                      </Group>
+                      <Text size="sm" style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>
+                        {message.message}
+                      </Text>
+                    </Paper>
+                  ))}
+                {(messagesQuery.data?.totalPages || 0) > 1 &&
+                  <Center><Pagination value={messagePage} total={messagesQuery.data?.totalPages || 1}
+                    color="red" onChange={setMessagePage} size="sm"/></Center>}
               </Stack>}
               {tab === "actions" && <Stack gap="sm">
                 {actionsQuery.isPending ? <Center py={35}><Loader size="sm" color="red"/></Center> :
