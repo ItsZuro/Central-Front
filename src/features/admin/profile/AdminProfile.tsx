@@ -102,6 +102,7 @@ export default function AdminProfile() {
   };
 
   if (!user) return <p className="p-6 text-sm text-slate-500">Cargando cuenta…</p>;
+  const displayRole = user.roles?.includes("ROLE_ADMIN") ? "Administrador" : "Gerente";
   const initials = (user.firstName?.[0] || user.username?.[0] || "A").toUpperCase() +
     (user.lastName?.[0] || "").toUpperCase();
 
@@ -124,7 +125,7 @@ export default function AdminProfile() {
               </div>
               <h2 className="mt-4 text-lg font-extrabold text-slate-900">{user.fullName || user.username}</h2>
               <p className="mt-1 text-sm text-slate-500">@{user.username}</p>
-              <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700"><ShieldCheck size={15}/> Administrador</span>
+              <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700"><ShieldCheck size={15}/> {displayRole}</span>
             </div>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
