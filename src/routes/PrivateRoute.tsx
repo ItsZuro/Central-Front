@@ -24,7 +24,7 @@ const PrivateRoute = ({ allowedRoles }: PrivateRouteProps) => {
     // No enviar personal no autorizado al inicio del cliente.
     const priority = [
       "ROLE_ADMIN", "ROLE_MANAGER", "ROLE_CHEF", "ROLE_CASHIER",
-      "ROLE_WAITER", "ROLE_SUPPLIER", "ROLE_CLIENT",
+      "ROLE_WAITER", "ROLE_DRIVER", "ROLE_SUPPLIER", "ROLE_CLIENT",
     ];
     const primaryRole = priority.find((role) => user.roles.includes(role));
     const home = primaryRole ? roleDefaultRoutes[primaryRole] : "/auth/login";
