@@ -9,6 +9,7 @@ import {
   ArrowRight, ClipboardList, LogOut, ShoppingBag, UserRound,
 } from "lucide-react";
 import { useState } from "react";
+import headerStyles from "./PublicHeader.module.css";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 
 const navigation = [
@@ -108,7 +109,7 @@ export default function PublicHeader() {
                 </ActionIcon>
               </Indicator>
               {loggedIn && user ? (
-                <Menu position="bottom-end" width={250} shadow="xl" withinPortal>
+                <Menu position="bottom-end" width={250} shadow="xl" withinPortal classNames={{ dropdown: headerStyles.dropdown, item: headerStyles.item, label: headerStyles.label }}>
                   <Menu.Target>
                     <Button
                       variant="subtle"
