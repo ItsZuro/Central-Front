@@ -1,351 +1,121 @@
 import { api } from "@/core/api/api";
-import { useAuthStore } from "@/core/stores/auth/auth.store";
-import type { CSSProperties } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, ChartNoAxesCombined, CircleCheck, PackageOpen, Plus, ShieldCheck, Tags, UtensilsCrossed, UsersRound } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-type BarStyle = CSSProperties & { "--bar-h": string };
+interface Product {
+  id: number;
+  name: string;
+  price: number;
+  categoryName?: string;
+  active: boolean;
+}
 
-function Dashboard() {
-  const [productCount, setProductCount] = useState<number | null>(null);
-  const [ordersTodayTotal, setOrdersTodayTotal] = useState<number | null>(null);
-  const [ordersCount, setOrdersCount] = useState<number | null>(null);
-  const [usersCount, setUsersCount] = useState<number | null>(null);
+interface Stats {
+  products: Product[];
+  categories: number;
+  users: number;
+}
 
-  // Contar productos reales desde el backend (GET /api/v1/products)
+export default function Dashboard() {
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [error, setError] = useState("");
+
   useEffect(() => {
-    let mounted = true;
-    (async () => {
+    let active = true;
+    const load = async () => {
       try {
-        const res = await api.get("products");
-        const list = (res.data?.data || []) as unknown[];
-        if (mounted) setProductCount(Array.isArray(list) ? list.length : null);
-      } catch {
-        // silencioso: mantener mock si falla
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // Obtener órdenes y calcular ventas de hoy y conteo
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const token = useAuthStore.getState().accessToken;
-        const res = await api.get(
-          "orders",
-          token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
-        );
-        const orders = (res.data?.data || []) as Array<{
-          total?: number;
-          date?: string;
-        }>;
-        const today = new Date();
-        let total = 0;
-        let count = 0;
-        for (const o of orders) {
-          if (!o?.date) continue;
-          const d = new Date(o.date);
-          if (
-            d.getFullYear() === today.getFullYear() &&
-            d.getMonth() === today.getMonth() &&
-            d.getDate() === today.getDate()
-          ) {
-            total += Number(o.total || 0);
-          }
-          count += 1;
-        }
-        if (mounted) {
-          setOrdersTodayTotal(total);
-          setOrdersCount(count);
-        }
-      } catch {
-        // silencioso
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // Obtener conteo de usuarios si hay token
-  useEffect(() => {
-    let mounted = true;
-    const token = useAuthStore.getState().accessToken;
-    if (!token) return;
-    (async () => {
-      try {
-        const res = await api.get("users/admin", {
-          headers: { Authorization: `Bearer ${token}` },
+        const [p, c, u] = await Promise.all([
+          api.get("products/all"),
+          api.get("categories"),
+          api.get("users/admin"),
+        ]);
+        if (active) setStats({
+          products: Array.isArray(p.data?.data) ? p.data.data : [],
+          categories: Array.isArray(c.data?.data) ? c.data.data.length : 0,
+          users: Array.isArray(u.data?.data) ? u.data.data.length : 0,
         });
-        const list = (res.data?.data || []) as unknown[];
-        if (mounted) setUsersCount(Array.isArray(list) ? list.length : null);
       } catch {
-        // Silencioso: el panel conserva el valor vacío si falla la consulta.
+        if (active) setError("No se pudieron cargar todos los indicadores. Comprueba la sesión y la conexión con el backend.");
       }
-    })();
-    return () => {
-      mounted = false;
     };
+    void load();
+    return () => { active = false; };
   }, []);
 
-  // Gráfico vacío si no hay datos (se alimentará desde Reports)
-  const data = useMemo(
-    () =>
-      Array.from({ length: 14 }, (_, i) => ({ label: `D${i + 1}`, value: 0 })),
-    []
-  );
-  const totals = {
-    total: data.reduce((acc, d) => acc + d.value, 0),
-    avg: Math.round(data.reduce((acc, d) => acc + d.value, 0) / data.length),
-    best: data.reduce((a, b) => (a.value > b.value ? a : b)),
-  };
+  const activeProducts = stats?.products.filter((p) => p.active).length ?? 0;
+  const metrics = [
+    { title: "Platos registrados", value: stats?.products.length, icon: UtensilsCrossed, to: "/admin/products", sub: "Total en el catálogo" },
+    { title: "Platos publicados", value: activeProducts, icon: CircleCheck, to: "/admin/products", sub: "Visibles para clientes" },
+    { title: "Categorías", value: stats?.categories, icon: Tags, to: "/admin/categories", sub: "Familias del menú" },
+    { title: "Usuarios", value: stats?.users, icon: UsersRound, to: "/admin/users", sub: "Cuentas registradas" },
+  ];
+  const steps = [
+    { title: "Crear categorías", detail: "Entradas, platos principales, bebidas y postres.", to: "/admin/categories", complete: (stats?.categories ?? 0) > 0 },
+    { title: "Registrar productos", detail: "Añade descripciones, precios e imágenes.", to: "/admin/products", complete: (stats?.products.length ?? 0) > 0 },
+    { title: "Revisar usuarios", detail: "Verifica las cuentas disponibles y sus roles.", to: "/admin/users", complete: (stats?.users ?? 0) > 1 },
+  ];
 
   return (
-    <section className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <nav className="text-sm text-gray-500">
-            Admin / <span className="text-gray-700">Dashboard</span>
-          </nav>
-          <h1 className="mt-1 text-2xl md:text-3xl font-bold text-gray-900">
-            Panel de administración
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Resumen de negocio y accesos clave
-          </p>
-        </div>
-        <div className="hidden md:flex gap-2">
-          <Link
-            to="/admin/reports"
-            className="px-3 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
-            Ver reportes
-          </Link>
-          <Link
-            to="/admin/products"
-            className="px-3 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
-          >
-            Nuevo producto
-          </Link>
+    <section className="mx-auto max-w-7xl space-y-7">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#af0914] via-[#d61020] to-[#f04d3d] p-7 text-white shadow-xl shadow-red-100 sm:p-10">
+        <div className="pointer-events-none absolute -right-12 -top-24 h-72 w-72 rounded-full border-[50px] border-white/10" />
+        <div className="pointer-events-none absolute bottom-[-100px] right-40 h-52 w-52 rounded-full bg-white/5" />
+        <div className="relative z-10 max-w-2xl">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-bold tracking-wide"><ShieldCheck size={15} /> RESTAURANT CENTRAL · ADMIN</div>
+          <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Tu restaurante, bajo control.</h1>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-red-50 sm:text-base">Gestiona el catálogo, organiza los platos y administra tu equipo desde un solo lugar. Los indicadores proceden de tu API.</p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Link to="/admin/products" className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-red-700 shadow-sm hover:bg-red-50"><Plus size={18} /> Gestionar menú</Link>
+            <Link to="/admin/reports" className="inline-flex items-center gap-2 rounded-xl border border-white/35 bg-white/10 px-5 py-3 text-sm font-bold text-white hover:bg-white/20"><ChartNoAxesCombined size={18} /> Ver reportes</Link>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          {
-            label: "Ventas (hoy)",
-            value:
-              ordersTodayTotal !== null
-                ? `S/ ${ordersTodayTotal.toFixed(2)}`
-                : "—",
-            path: "/admin/reports",
-          },
-          {
-            label: "Pedidos activos",
-            value: ordersCount !== null ? String(ordersCount) : "—",
-            path: "/chef/orders",
-          },
-          {
-            label: "Productos activos",
-            value: productCount !== null ? String(productCount) : "—",
-            path: "/admin/products",
-          },
-          {
-            label: "Usuarios",
-            value: usersCount !== null ? String(usersCount) : "—",
-            path: "/admin/users",
-          },
-        ].map((s) => (
-          <Link
-            key={s.label}
-            to={s.path}
-            className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow transition-shadow"
-          >
-            <div className="text-xs uppercase tracking-wide text-gray-500">
-              {s.label}
-            </div>
-            <div className="text-2xl font-semibold text-gray-900 mt-1">
-              {s.value}
-            </div>
-            <div className="text-red-600 text-sm mt-2">Detalles →</div>
+      {error && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{error}</div>}
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => (
+          <Link to={metric.to} key={metric.title} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-red-100 hover:shadow-md">
+            <div className="flex items-center justify-between"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-600"><metric.icon size={22} /></span><ArrowRight size={16} className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-red-600" /></div>
+            <p className="mt-5 text-sm font-semibold text-slate-600">{metric.title}</p>
+            <p className="mt-1 text-3xl font-extrabold text-slate-900">{stats ? metric.value : "…"}</p>
+            <p className="mt-2 text-xs text-slate-400">{metric.sub}</p>
           </Link>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 rounded-2xl border border-gray-200 bg-white p-6">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Ventas recientes
-          </h2>
-          <Link
-            to="/admin/reports"
-            className="block mt-4"
-          >
-            <div className="h-48 rounded-lg bg-gradient-to-b from-red-50 to-amber-50 border border-amber-200 px-3 py-3">
-              <div className="h-full flex items-end gap-2">
-                {data.map((d, idx) => {
-                  const delay = 40 * idx;
-                  const h = Math.max(
-                    8,
-                    Math.min(100, Math.round((d.value / 1000) * 100))
-                  );
-                  return (
-                    <div
-                      key={d.label}
-                      className="flex-1 group"
-                    >
-                      <div
-                        className="w-full bg-red-300/70 group-hover:bg-red-400 transition-[height,background-color] duration-700 ease-out rounded-md"
-                        style={
-                          {
-                            height: 0,
-                            animation: `growBar 800ms ${delay}ms forwards`,
-                            "--bar-h": `${h}px`,
-                          } as BarStyle
-                        }
-                        aria-label={`${d.label}: S/ ${d.value}`}
-                        title={`${d.label}: S/ ${d.value}`}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </Link>
-          <style>{`
-            @keyframes growBar { from { height: 0; } to { height: var(--bar-h); } }
-          `}</style>
+      <div className="grid gap-6 lg:grid-cols-[1.05fr_1fr]">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+          <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-red-600">Primeros pasos</p><h2 className="mt-2 text-xl font-extrabold text-slate-900">Prepara tu restaurante</h2></div><span className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700">{steps.filter((step) => step.complete).length} de {steps.length}</span></div>
+          <p className="mt-2 text-sm text-slate-500">Completa estas tareas para habilitar las principales funciones del sistema.</p>
+          <div className="mt-6 space-y-3">{steps.map((step, i) => <Link key={step.title} to={step.to} className="group flex items-center gap-4 rounded-xl border border-slate-100 p-4 transition hover:border-red-100 hover:bg-red-50/40">
+            <span className={step.complete ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 font-bold text-emerald-600" : "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 font-bold text-slate-600"}>{step.complete ? <CircleCheck size={20} /> : String(i + 1).padStart(2, "0")}</span>
+            <div className="min-w-0 flex-1"><p className="font-semibold text-slate-900">{step.title}</p><p className="mt-1 text-xs text-slate-500">{step.detail}</p></div>
+            <ArrowRight size={16} className="text-slate-400 group-hover:text-red-600" />
+          </Link>)}</div>
+        </div>
 
-          {/* Resumen de ventas recientes */}
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-            <div className="rounded-lg border border-gray-200 bg-white/60 p-3">
-              <div className="text-gray-500">Total 14 días</div>
-              <div className="font-semibold text-gray-900">
-                S/ {totals.total.toFixed(2)}
-              </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+          <div className="flex items-center justify-between gap-2"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-red-600">Catálogo</p><h2 className="mt-2 text-xl font-extrabold text-slate-900">Últimos productos</h2></div><Link to="/admin/products" className="text-sm font-semibold text-red-600 hover:underline">Ver todos</Link></div>
+          <p className="mt-2 text-sm text-slate-500">Productos actualmente registrados en PostgreSQL.</p>
+          {stats && stats.products.length > 0 ? (
+            <div className="mt-5 divide-y divide-slate-100">
+              {stats.products.slice(-5).reverse().map((product) => <div key={product.id} className="flex items-center justify-between gap-3 py-3">
+                <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600"><UtensilsCrossed size={19} /></span><div><p className="font-semibold text-slate-900">{product.name}</p><p className="text-xs text-slate-400">{product.categoryName || "Sin categoría"} · {product.active ? "Publicado" : "Oculto"}</p></div></div>
+                <span className="whitespace-nowrap font-bold text-slate-900">S/ {Number(product.price).toFixed(2)}</span>
+              </div>)}
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white/60 p-3">
-              <div className="text-gray-500">Promedio diario</div>
-              <div className="font-semibold text-gray-900">
-                S/ {totals.avg.toFixed(2)}
-              </div>
+          ) : (
+            <div className="mt-6 flex flex-col items-center rounded-2xl bg-slate-50 px-5 py-12 text-center">
+              <PackageOpen size={36} className="text-slate-300" />
+              <p className="mt-4 font-semibold text-slate-700">Aún no hay platos registrados</p>
+              <p className="mt-2 text-xs text-slate-500">Cuando agregues productos, aparecerán aquí.</p>
+              <Link to="/admin/products" className="mt-5 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-bold text-white">Ir al menú</Link>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white/60 p-3">
-              <div className="text-gray-500">Mejor día</div>
-              <div className="font-semibold text-gray-900">
-                {totals.best.label}: S/ {totals.best.value.toFixed(2)}
-              </div>
-            </div>
-          </div>
+          )}
         </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Ventas por categoría
-          </h2>
-          <ul className="mt-4 space-y-2 text-sm">
-            <li className="flex items-center justify-between">
-              <span className="text-gray-600">Entradas</span>
-              <span className="font-medium text-gray-900">S/ 520.00</span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span className="text-gray-600">Platos principales</span>
-              <span className="font-medium text-gray-900">S/ 2,100.00</span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span className="text-gray-600">Postres</span>
-              <span className="font-medium text-gray-900">S/ 640.00</span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span className="text-gray-600">Bebidas</span>
-              <span className="font-medium text-gray-900">S/ 820.00</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Actividad reciente
-          </h2>
-          <ul className="mt-4 space-y-3 text-sm">
-            <li className="flex items-center justify-between">
-              <span className="text-gray-600">Creado: Tiramisú</span>
-              <span className="text-gray-500">hace 2h</span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span className="text-gray-600">Descuento en Lomo Saltado</span>
-              <span className="text-gray-500">hace 4h</span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span className="text-gray-600">
-                Usuario bloqueado: luis@example.com
-              </span>
-              <span className="text-gray-500">ayer</span>
-            </li>
-          </ul>
-        </div>
-        <div className="lg:col-span-2 rounded-2xl border border-gray-200 bg-white p-6">
-          <h2 className="text-lg font-semibold text-gray-900">Notas</h2>
-          <ul className="mt-3 space-y-2 text-sm">
-            <li className="flex items-center justify-between">
-              <span className="text-gray-600">Actualizar precios del Menú</span>
-              <span className="text-gray-500">hoy</span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span className="text-gray-600">Revisar descuentos activos</span>
-              <span className="text-gray-500">hoy</span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span className="text-gray-600">
-                Ver top productos en Reportes
-              </span>
-              <span className="text-gray-500">esta semana</span>
-            </li>
-            <li className="flex items-center justify-between">
-              <span className="text-gray-600">Validar usuarios bloqueados</span>
-              <span className="text-gray-500">ayer</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      {/* Acciones rápidas adicionales (sin duplicar botones del header) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Link
-          to="/admin/products"
-          className="rounded-2xl border border-gray-200 bg-white p-5 hover:shadow-sm transition-shadow"
-        >
-          <div className="font-medium text-gray-900">Gestionar catálogo</div>
-          <div className="text-sm text-gray-600">
-            Edita precios, estados y descuentos
-          </div>
-        </Link>
-        <Link
-          to="/admin/reports"
-          className="rounded-2xl border border-gray-200 bg-white p-5 hover:shadow-sm transition-shadow"
-        >
-          <div className="font-medium text-gray-900">Exportar reportes</div>
-          <div className="text-sm text-gray-600">
-            Revisa y exporta tus reportes
-          </div>
-        </Link>
-        <Link
-          to="/admin/users"
-          className="rounded-2xl border border-gray-200 bg-white p-5 hover:shadow-sm transition-shadow"
-        >
-          <div className="font-medium text-gray-900">Invitar usuario</div>
-          <div className="text-sm text-gray-600">
-            Agrega personal y gestiona roles
-          </div>
-        </Link>
       </div>
     </section>
   );
 }
-
-export default Dashboard;
