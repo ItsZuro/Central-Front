@@ -1,0 +1,64 @@
+/* Paleta del calendario de reservas: la ventana emergente se monta en un portal. */
+.dateInput {
+  min-height: 48px;
+  border-radius: 11px;
+  color: #f5f5f6;
+  background-color: #15161b;
+  border: 1px solid #494a55;
+  cursor: pointer;
+}
+
+.dateInput:hover {
+  border-color: #777984;
+}
+
+.dateInput:focus-visible,
+.dateInput[data-expanded] {
+  border-color: #f16d78;
+  outline: 2px solid rgba(241, 109, 120, 0.25);
+  outline-offset: 1px;
+}
+
+.dateLabel {
+  color: #ececf1;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.calendarDropdown {
+  --mantine-color-text: #f4f4f6;
+  --mantine-color-dimmed: #a5a7b2;
+  --mantine-primary-color-filled: #b42739;
+  --mantine-primary-color-filled-hover: #c93b4c;
+  background-color: #202127;
+  color: #f4f4f6;
+  border: 1px solid #4b4c56;
+  border-radius: 15px;
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.48);
+  padding: 14px;
+}
+
+.calendarDropdown :global(button) {
+  color: #e9e9ee;
+  border-radius: 8px;
+}
+
+.calendarDropdown :global(button:hover:not(:disabled):not([data-selected])) {
+  background-color: #373943;
+  color: #fff;
+}
+
+.calendarDropdown :global(button[data-selected]),
+.calendarDropdown :global(button[data-selected]:hover) {
+  color: #fff;
+  background-color: #ab2638;
+}
+
+.calendarDropdown :global(button:disabled) {
+  color: #777984;
+  opacity: 0.55;
+}
+
+.calendarDropdown :global([data-outside]) {
+  color: #7b7d88;
+}
