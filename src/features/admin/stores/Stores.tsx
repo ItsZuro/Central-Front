@@ -244,9 +244,30 @@ export default function Stores() {
           </Group>
         </SimpleGrid>
         <Alert mt="lg" color="blue" variant="light" title="Ubicación para reparto" icon={<MapPin size={18}/>}>
-          Elige la posición exacta del restaurante. Esta será el origen de Google Maps para calcular
-          la distancia por carretera y comprobar la cobertura. No uses una dirección inventada.
+          Elige el origen del reparto. Para la simulación académica puedes usar la referencia
+          de Central Restaurante en Barranco, Lima; nuestro sistema no está afiliado al local.
+          Confirma el pin sobre el mapa antes de guardar.
         </Alert>
+        <Group justify="flex-end" mt="sm">
+          <Button
+            type="button"
+            variant="subtle"
+            color="red"
+            size="sm"
+            onClick={() => {
+              setDraft((old) => ({
+                ...old,
+                name: "Restaurant Central - Barranco",
+                address: "Av. Pedro de Osma 301, Barranco, Lima, Perú",
+                latitude: -12.1526483,
+                longitude: -77.0224579,
+              }));
+              toast.info("Referencia de Barranco cargada. Verifica la ubicación antes de guardar.");
+            }}
+          >
+            Usar referencia de Lima
+          </Button>
+        </Group>
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" mt="lg">
           <NumberInput
             label="Latitud"
