@@ -1,6 +1,7 @@
 import { useNiubizScript } from "@/core/hooks/order/useNiubizScript";
 import { useCreateOrderMutation } from "@/core/hooks/order/useOrder.hook";
 import { paymentService } from "@/core/services/payment/payment.service";
+import { orderService } from "@/core/services/order/order.service";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { useCartStore } from "@/core/stores/cart/cart.store";
 import type { OrderRequest } from "@/core/types/order/order.model";
@@ -19,6 +20,14 @@ import PaymentSelector from "./components/PaymentSelector";
 import { BASE_URL, api } from "@/core/api/api";
 import type { AxiosError } from "axios";
 import styles from "./Checkout.module.css";
+import {
+  PENDING_PAYMENT_KEY,
+  createCheckoutSignature,
+  getRetryablePayment,
+  matchesLegacyPendingOrder,
+  parsePendingCardPayment,
+  type PendingCardPayment,
+} from "./pendingPayment";
 
 type OrderMode = "pickup" | "delivery";
 type CatalogRef = { id: number; code: string };
@@ -121,6 +130,10 @@ export default function CheckoutPage() {
   // Coincide con el cálculo de IGV configurado en Spring Boot (18%).
   const total = Number((subtotal * 1.18 + deliveryFee).toFixed(2));
   const isLoading = isCreatingOrder || isProcessingPayment;
+  const checkoutSignature = createCheckoutSignature(user?.id ?? null, orderMode, items, coordinates);
+  const pendingCardPayment = paymentMethod === "card"
+    ? getRetryablePayment(localStorage.getItem(PENDING_PAYMENT_KEY), checkoutSignature)
+    : null;
 
   // El borrador se conserva en el estado de React Router durante la autenticación.
   const loginState = {
@@ -170,6 +183,7 @@ export default function CheckoutPage() {
 
   // --- PROCESO PRINCIPAL DE ORDEN ---
   const handleProcessOrder = () => {
+    if (isLoading) return;
     if (orderMode === "delivery" && (!address.trim() || !coordinates || !deliveryQuote || isCheckingDelivery)) {
       return toast.error("Selecciona una dirección con cobertura de delivery verificada.");
     }
@@ -227,6 +241,24 @@ export default function CheckoutPage() {
       }
     }
 
+    if (paymentMethod === "card") {
+      const stored = localStorage.getItem(PENDING_PAYMENT_KEY);
+      const pending = getRetryablePayment(stored, checkoutSignature);
+      if (pending) {
+        // El pedido ya existe en PostgreSQL: abrir otra sesión de pago, no crear otra orden.
+        void startNiubizFlow(pending.orderId, pending.amount, checkoutSignature);
+        return;
+      }
+
+      const legacyPending = parsePendingCardPayment(stored);
+      if (legacyPending && !legacyPending.checkoutSignature) {
+        // Los intentos anteriores a esta corrección no guardaban la firma.
+        // Comprobar el pedido real antes de reutilizarlo para otro pago.
+        void resumeLegacyPayment(legacyPending, checkoutSignature);
+        return;
+      }
+    }
+
     // 3. Construir Payload para la Orden
     const orderPayload: OrderRequest = {
       statusId,
@@ -270,7 +302,16 @@ export default function CheckoutPage() {
           const orderId = response.data.id;
 
           if (paymentMethod === "card") {
-            startNiubizFlow(orderId, Number(response.data.total));
+            const amount = Number(response.data.total);
+            // Persistir la orden antes de contactar Niubiz: incluso si falla la
+            // sesión o el usuario cierra el modal, no se duplica el pedido.
+            localStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({
+              orderId,
+              amount,
+              purchaseNumber: String(orderId),
+              checkoutSignature,
+            }));
+            void startNiubizFlow(orderId, amount, checkoutSignature);
           } else {
             finishSuccess(orderId);
           }
@@ -287,9 +328,28 @@ export default function CheckoutPage() {
     );
   };
 
-  const startNiubizFlow = async (orderId: number, serverTotal: number) => {
+  const resumeLegacyPayment = async (pending: PendingCardPayment, signature: string) => {
     setIsProcessingPayment(true);
     try {
+      const response = await orderService.getOrderById(pending.orderId);
+      if (!response.success || !matchesLegacyPendingOrder(response.data, items, orderMode, pending.amount)) {
+        localStorage.removeItem(PENDING_PAYMENT_KEY);
+        toast.info("El pedido anterior no coincide con tu carrito. Revisa Mis pedidos antes de generar uno nuevo.");
+        return;
+      }
+      await startNiubizFlow(pending.orderId, pending.amount, signature);
+    } catch (error) {
+      console.error("No se pudo recuperar la orden pendiente:", error);
+      toast.error("No se pudo comprobar el pedido pendiente. Consulta Mis pedidos antes de reintentar.");
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const startNiubizFlow = async (orderId: number, serverTotal: number, signature: string) => {
+    setIsProcessingPayment(true);
+    try {
+      // El backend comprueba el importe, la titularidad y si el pedido ya está pagado.
       const response = await paymentService.startNiubizPayment({
         orderId,
         amount: serverTotal,
@@ -297,18 +357,13 @@ export default function CheckoutPage() {
 
       const { sessionKey, merchantId, purchaseNumber } = response.data;
 
-      // --- CORRECCIÓN 1: Guardar ANTES de abrir el modal ---
-      // Usamos el MISMO nombre que en PaymentValidate: "pending_payment_metadata"
-      const paymentMetadata = {
-        purchaseNumber: purchaseNumber,
-        amount: response.data.amount,
+      // PaymentValidate requiere estos datos cuando Niubiz devuelve el token.
+      localStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({
+        purchaseNumber,
+        amount: Number(response.data.amount),
         orderId,
-      };
-      localStorage.setItem(
-        "pending_payment_metadata",
-        JSON.stringify(paymentMetadata)
-      );
-      // -----------------------------------------------------
+        checkoutSignature: signature,
+      }));
 
       const config = {
         sessiontoken: sessionKey,
@@ -317,36 +372,32 @@ export default function CheckoutPage() {
         purchasenumber: purchaseNumber,
         amount: Number(response.data.amount),
         expirationminutes: "5",
-        timeouturl: window.location.origin + "/menu",
-        merchantlogo:
-          "https://static-content.vnforapps.com/v2/img/logo-comercio-demo.png",
+        timeouturl: window.location.origin + "/checkout",
+        merchantlogo: "https://static-content.vnforapps.com/v2/img/logo-comercio-demo.png",
         merchantname: "Central Restaurante",
-
-        // Apunta a tu Backend Java
-        action: `${BASE_URL.replace(/\/$/, "")}/payments/niubiz/callback`,
-
-        // Ya NO necesitamos el complete para guardar, el backend redirige
+        action: BASE_URL.replace(/\/$/, "") + "/payments/niubiz/callback",
         complete: () => {
-          console.log("Esperando redirección del backend...");
+          // El backend redirige al validador; esta señal no confirma un pago.
+          console.info("Niubiz completó su formulario; esperando validación.");
         },
       };
 
-      if (window.VisanetCheckout) {
-        window.VisanetCheckout.configure(config);
-        window.VisanetCheckout.open();
-        // NO quitamos el loading (setIsProcessingPayment(false)) aquí,
-        // para que el usuario espere la redirección.
-      } else {
-        console.error("VisanetCheckout no disponible.");
-        setIsProcessingPayment(false);
+      if (!window.VisanetCheckout) {
+        throw new Error("No está disponible el formulario de Niubiz.");
       }
+
+      window.VisanetCheckout.configure(config);
+      window.VisanetCheckout.open();
+      // open() solo muestra el modal. No esperar indefinidamente una redirección:
+      // cerrar con X tampoco dispara el callback de confirmación.
     } catch (error) {
       console.error("Error iniciando Niubiz:", error);
-      toast.error("Error al conectar con el servidor de pagos");
+      toast.error("No se pudo abrir Niubiz. El pedido sigue pendiente y puedes reintentar.");
+    } finally {
+      // El modal gestiona su propia UI. Al cerrarlo, el botón vuelve a estar activo.
       setIsProcessingPayment(false);
     }
   };
-
 
   const finishSuccess = (orderId: number) => {
     setIsProcessingPayment(false);
@@ -558,6 +609,7 @@ export default function CheckoutPage() {
               isUserLoggedIn={isClient}
               onRemoveItem={removeItem}
               onProcessOrder={handleProcessOrder}
+              pendingCardOrderId={pendingCardPayment?.orderId ?? null}
             />
           </aside>
         </div>
