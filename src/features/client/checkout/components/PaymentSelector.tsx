@@ -3,11 +3,13 @@ import { Banknote, CreditCard, Smartphone } from "lucide-react";
 type PaymentMethodType = "card" | "cash" | "yape";
 
 interface PaymentSelectorProps {
+  pickupMode?: boolean;
   selectedMethod: PaymentMethodType;
   onSelect: (method: PaymentMethodType) => void;
 }
 
 export default function PaymentSelector({
+  pickupMode = false,
   selectedMethod,
   onSelect,
 }: PaymentSelectorProps) {
@@ -52,7 +54,7 @@ export default function PaymentSelector({
           }`}
         >
           <Banknote size={32} />
-          <span className="font-bold text-sm">Contraentrega</span>
+          <span className="font-bold text-sm">{pickupMode ? "Pagar al recoger" : "Contraentrega"}</span>
         </div>
       </div>
 
@@ -64,9 +66,9 @@ export default function PaymentSelector({
           {selectedMethod === "card" &&
             "Serás redirigido a la pasarela segura de Niubiz para completar tu compra."}
           {selectedMethod === "yape" &&
-            "El repartidor te mostrará el código QR al momento de la entrega."}
+            pickupMode ? "El pago quedará pendiente hasta recoger el pedido. No se cobra en línea." : "El repartidor te mostrará el código QR al momento de la entrega."}
           {selectedMethod === "cash" &&
-            "Pagas en efectivo al recibir. Por favor ten el monto exacto si es posible."}
+            pickupMode ? "La orden se registra con pago pendiente. Puedes pagar en efectivo al recogerla cuando el local esté operativo." : "Pagas en efectivo al recibir. Por favor ten el monto exacto si es posible."}
         </p>
       </div>
     </div>
