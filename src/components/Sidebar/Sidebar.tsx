@@ -8,7 +8,7 @@ import {
 } from "@mantine/core";
 import {
   ChartNoAxesCombined, ChevronRight, LayoutDashboard, LogOut,
-  MapPin, ShieldCheck, Tags, UtensilsCrossed, UserRound, UsersRound,
+  MapPin, ShieldCheck, Tags, UtensilsCrossed, UserRound, UsersRound, UserRoundSearch,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -31,6 +31,7 @@ const sections = [
     label: "Operaciones",
     links: [
       { label: "Sucursales y delivery", to: "/admin/stores", icon: MapPin },
+      { label: "Clientes", to: "/admin/customers", icon: UserRoundSearch },
     ],
   },
   {
