@@ -19,6 +19,7 @@ export default function Sidebar() {
   const setOpen = (value: boolean) => value ? useAdminUiStore.getState().openSidebar() : useAdminUiStore.getState().closeSidebar();
   const [loggingOut, setLoggingOut] = useState(false);
   const user = useAuthStore((state) => state.user);
+  const isAdmin = Boolean(user?.roles?.includes("ROLE_ADMIN"));
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -51,14 +52,14 @@ export default function Sidebar() {
           </div>
 
           <div className="mb-9 rounded-2xl bg-gradient-to-br from-red-600 to-red-800 p-4 text-white shadow-sm">
-            <div className="mb-4 flex items-center justify-between"><span className="text-[10px] font-bold uppercase tracking-[0.16em] text-red-100">Panel de control</span><ShieldCheck size={19} className="text-red-100" /></div>
+            <div className="mb-4 flex items-center justify-between"><span className="text-[10px] font-bold uppercase tracking-[0.16em] text-red-100">{isAdmin ? "Panel administrativo" : "Panel de gerencia"}</span><ShieldCheck size={19} className="text-red-100" /></div>
             <p className="truncate text-base font-bold">{user?.fullName || user?.username || "Administrador"}</p>
             <p className="mt-1 text-xs text-red-100">Gestión de Restaurant Central</p>
           </div>
 
           <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Menú principal</p>
           <nav className="space-y-1.5" aria-label="Navegación de administración">
-            {links.map((link) => {
+            {links.filter((link) => isAdmin || link.to !== "/admin/users").map((link) => {
               const Icon = link.icon;
               return (
                 <NavLink key={link.to} to={link.to} onClick={() => setOpen(false)} className={({ isActive }) => "group flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition " + (isActive ? "bg-red-50 text-red-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900")}>
