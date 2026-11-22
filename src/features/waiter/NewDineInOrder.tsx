@@ -12,7 +12,19 @@ type Customer = { id: number; fullName: string; username: string; email: string 
 type Product = { id: number; name: string; price: number; active: boolean };
 type Table = { id: number; code: string; alias?: string | null; status: string; capacity: number };
 
-export default function NewDineInOrder({ onCreated }: { onCreated: () => void }) {
+type NewDineInOrderProps = {
+  onCreated: () => void;
+  defaultTableId?: number;
+  label?: string;
+  variant?: "primary" | "outline";
+};
+
+export default function NewDineInOrder({
+  onCreated,
+  defaultTableId,
+  label = "Pedido en mesa",
+  variant = "primary",
+}: NewDineInOrderProps) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
@@ -96,9 +108,11 @@ export default function NewDineInOrder({ onCreated }: { onCreated: () => void })
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-xl bg-red-700 px-4 py-3 text-sm font-bold text-white hover:bg-red-600">
-        <Plus size={17} /> Pedido en mesa
+      <button type="button" onClick={() => { setTableId(defaultTableId != null ? String(defaultTableId) : ""); setOpen(true); void config.refetch(); }}
+        className={variant === "primary"
+          ? "inline-flex items-center justify-center gap-2 rounded-xl bg-red-700 px-4 py-3 text-sm font-bold text-white hover:bg-red-600"
+          : "inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-zinc-100 hover:bg-white/10"}>
+        <Plus size={17} /> {label}
       </button>
 
       {open && (
