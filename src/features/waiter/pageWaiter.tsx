@@ -40,7 +40,7 @@ const money = (amount: number) =>
   new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(amount);
 
 function orderStatusLabel(order: OrderResponse) {
-  return order.statusName || order.statusCode.replaceAll("_", " ");
+  return order.statusName || order.statusCode.replace(/_/g, " ");
 }
 
 function orderTypeLabel(order: OrderResponse) {
@@ -137,7 +137,7 @@ export default function WaiterApp() {
     refetchInterval: 15000,
   });
 
-  const orders = ordersQuery.data ?? [];
+  const orders = useMemo(() => ordersQuery.data ?? [], [ordersQuery.data]);
   const tables = tablesQuery.data ?? [];
   const active = orders.filter((o) => !completedStatuses.has(o.statusCode));
   const dineIn = active.filter((o) => o.tableId != null);
@@ -270,7 +270,7 @@ export default function WaiterApp() {
                 <span className="sr-only">Filtrar por estado</span>
                 <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="max-w-[210px] bg-transparent py-3 text-zinc-200 outline-none">
                   <option value="ALL" className="bg-zinc-900">Todos los estados</option>
-                  {statuses.map((status) => <option key={status} value={status} className="bg-zinc-900">{status.replaceAll("_", " ")}</option>)}
+                  {statuses.map((status) => <option key={status} value={status} className="bg-zinc-900">{status.replace(/_/g, " ")}</option>)}
                 </select>
               </label>
             </div>
