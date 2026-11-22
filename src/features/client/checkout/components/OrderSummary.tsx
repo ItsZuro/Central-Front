@@ -1,5 +1,7 @@
 import type { CartItem } from "@/core/stores/cart/cart.store";
-import { ShoppingBag, Trash2 } from "lucide-react";
+import { ActionIcon, Badge, Box, Button, Divider, Group, Paper, ScrollArea, Stack, Text } from "@mantine/core";
+import { ArrowRight, ShieldCheck, ShoppingBag, Trash2 } from "lucide-react";
+import styles from "../Checkout.module.css";
 
 interface OrderSummaryProps {
   pickupMode?: boolean;
@@ -14,6 +16,8 @@ interface OrderSummaryProps {
   onProcessOrder: () => void;
 }
 
+const money = (amount: number) => "S/ " + amount.toFixed(2);
+
 export default function OrderSummary({
   pickupMode = false,
   isCheckoutReady = true,
@@ -26,109 +30,124 @@ export default function OrderSummary({
   onRemoveItem,
   onProcessOrder,
 }: OrderSummaryProps) {
-  return (
-    <div className="bg-neutral-800 rounded-2xl border border-neutral-700 shadow-lg sticky top-24 overflow-hidden flex flex-col h-full max-h-[calc(100vh-8rem)]">
-      <div className="p-6 border-b border-neutral-700 bg-neutral-800 z-10">
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          <ShoppingBag
-            className="text-red-500"
-            size={20}
-          />{" "}
-          Resumen
-        </h2>
-      </div>
+  const units = items.reduce((sum, item) => sum + item.quantity, 0);
 
-      {/* Lista Scrollable */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-        {items.map((item) => (
-          <div
-            key={item.cartItemId}
-            className="flex gap-4 group"
-          >
-            <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0">
+  return (
+    <Paper className={styles.summary} shadow="xl">
+      <Box className={styles.summaryTop}>
+        <Group justify="space-between" align="center" gap="sm">
+          <Group gap="sm">
+            <div className={styles.iconBadge} style={{ width: 39, height: 39, borderRadius: 11 }}>
+              <ShoppingBag size={19} />
+            </div>
+            <Box>
+              <Text fw={800} size="md" c="#faf6f3">Tu pedido</Text>
+              <Text c="#a8a0a8" size="xs">Revisa los productos elegidos</Text>
+            </Box>
+          </Group>
+          <Badge radius="xl" color="red" variant="light">
+            {units} {units === 1 ? "producto" : "productos"}
+          </Badge>
+        </Group>
+      </Box>
+
+      <ScrollArea.Autosize mah={390} type="auto">
+        <Stack gap="md" className={styles.summaryBody}>
+          {items.map((item) => (
+            <div key={item.cartItemId} className={styles.summaryItem}>
               <img
                 src={item.product.imageUrl || "https://via.placeholder.com/150"}
                 alt={item.product.name}
-                className="w-full h-full object-cover bg-neutral-700 transition-transform group-hover:scale-110"
+                className={styles.summaryPhoto}
+                loading="lazy"
               />
+              <Box style={{ flex: 1, minWidth: 0 }}>
+                <Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
+                  <Text fw={750} c="#f7f3f2" size="sm" lineClamp={2} style={{ flex: 1 }}>
+                    {item.product.name}
+                  </Text>
+                  <ActionIcon
+                    type="button"
+                    variant="subtle"
+                    color="gray"
+                    size="sm"
+                    radius="sm"
+                    aria-label={"Eliminar " + item.product.name}
+                    title="Eliminar producto"
+                    onClick={() => onRemoveItem(item.cartItemId)}
+                  >
+                    <Trash2 size={16} />
+                  </ActionIcon>
+                </Group>
+                <Text size="xs" c="#a9a1a9" mt={5}>
+                  Cantidad: <Text span fw={750} c="#ece5e8">{item.quantity}</Text>
+                </Text>
+                {item.selectedExtras.length > 0 && (
+                  <Text size="xs" c="#9f979f" mt={4} lineClamp={2}>
+                    + {item.selectedExtras.map((extra) => extra.name).join(", ")}
+                  </Text>
+                )}
+                {item.notes.trim() && (
+                  <Text size="xs" c="#958d95" mt={4} lineClamp={1}>
+                    Nota: {item.notes}
+                  </Text>
+                )}
+                <Text fw={800} c="#ff7b80" mt={8} size="sm">
+                  {money(item.finalPrice * item.quantity)}
+                </Text>
+              </Box>
             </div>
+          ))}
+        </Stack>
+      </ScrollArea.Autosize>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex justify-between items-start mb-1">
-                <h4 className="font-semibold text-sm text-white line-clamp-2 leading-tight">
-                  {item.product.name}
-                </h4>
-                <button
-                  onClick={() => onRemoveItem(item.cartItemId)}
-                  className="text-gray-500 hover:text-red-500 transition-colors p-1 -mr-2"
-                  title="Eliminar"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-
-              <p className="text-xs text-gray-400">
-                Cant:{" "}
-                <span className="text-white font-bold">{item.quantity}</span>
-              </p>
-
-              {item.selectedExtras.length > 0 && (
-                <p className="text-xs text-gray-500 mt-1 line-clamp-1">
-                  + {item.selectedExtras.map((e) => e.name).join(", ")}
-                </p>
-              )}
-
-              <div className="text-red-500 font-bold text-sm mt-1">
-                S/ {(item.finalPrice * item.quantity).toFixed(2)}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Footer con Totales y Botón */}
-      <div className="p-6 bg-neutral-900 border-t border-neutral-700 space-y-3 z-10 shadow-[0_-5px_20px_rgba(0,0,0,0.3)]">
-        <div className="flex justify-between text-sm text-gray-400">
-          <span>Subtotal (sin IGV)</span>
-          <span>S/ {subtotal.toFixed(2)}</span>
+      <Box className={styles.summaryFooter}>
+        <Stack gap={11}>
+          <Group justify="space-between">
+            <Text size="sm" c="#afa8af">Subtotal (sin IGV)</Text>
+            <Text size="sm" c="#e3dce1" fw={650}>{money(subtotal)}</Text>
+          </Group>
+          <Group justify="space-between">
+            <Text size="sm" c="#afa8af">IGV (18%)</Text>
+            <Text size="sm" c="#e3dce1" fw={650}>{money(total - subtotal - deliveryFee)}</Text>
+          </Group>
+          <Group justify="space-between">
+            <Text size="sm" c="#afa8af">{pickupMode ? "Recogida en tienda" : "Costo de envío"}</Text>
+            <Text size="sm" c="#e3dce1" fw={650}>{money(deliveryFee)}</Text>
+          </Group>
+        </Stack>
+        <div className={styles.totalRow}>
+          <Group justify="space-between" align="center">
+            <Text c="#fff" fw={800} size="md">Total a pagar</Text>
+            <Text className={styles.totalAmount}>{money(total)}</Text>
+          </Group>
         </div>
-        <div className="flex justify-between text-sm text-gray-400">
-          <span>IGV (18%)</span>
-          <span>S/ {(total - subtotal - deliveryFee).toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between text-sm text-gray-400">
-          <span>{pickupMode ? "Recogida en tienda" : "Costo de envío"}</span>
-          <span>S/ {deliveryFee.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between text-xl font-bold text-white pt-3 border-t border-neutral-700">
-          <span>Total</span>
-          <span>S/ {total.toFixed(2)}</span>
-        </div>
-
-        <button
+        <Button
+          mt="lg"
+          fullWidth
+          h={54}
+          className={styles.cta}
           onClick={onProcessOrder}
-          disabled={isLoading || !isCheckoutReady}
-          className="w-full mt-4 bg-red-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-red-900/40 hover:bg-red-700 hover:shadow-red-900/60 transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+          loading={isLoading}
+          disabled={!isCheckoutReady}
+          rightSection={!isLoading && isCheckoutReady ? <ArrowRight size={18} /> : undefined}
         >
-          {isLoading ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              <span>Procesando...</span>
-            </>
-          ) : !isCheckoutReady ? (
-            "Preparando pedido..."
-          ) : isUserLoggedIn ? (
-            "Confirmar pedido"
-          ) : (
-            "Continuar e iniciar sesión"
-          )}
-        </button>
-        {!isUserLoggedIn && (
-          <p className="text-xs text-center text-gray-400 leading-relaxed">
-            Puedes revisar el pedido como invitado. El inicio de sesión solo es necesario para registrarlo.
-          </p>
-        )}
-      </div>
-    </div>
+          {!isCheckoutReady
+            ? "Preparando pedido..."
+            : isUserLoggedIn
+              ? "Confirmar pedido"
+              : "Continuar e iniciar sesión"}
+        </Button>
+        <Divider color="#383239" my="md" />
+        <Group align="flex-start" gap="xs" wrap="nowrap">
+          <ShieldCheck size={17} color="#c6a67c" style={{ flexShrink: 0 }} />
+          <Text size="xs" c="#a8a1a8" lh={1.65}>
+            {isUserLoggedIn
+              ? "Verifica tus datos antes de confirmar. El método de pago seleccionado se aplicará a tu pedido."
+              : "Puedes preparar tu pedido sin una cuenta. Te pediremos iniciar sesión solo cuando confirmes."}
+          </Text>
+        </Group>
+      </Box>
+    </Paper>
   );
 }

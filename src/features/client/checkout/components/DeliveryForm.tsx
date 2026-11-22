@@ -1,4 +1,6 @@
-import { Map, MapPin, User } from "lucide-react";
+import { Box, Button, Group, Paper, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import { Map, MapPin, UserRound } from "lucide-react";
+import styles from "../Checkout.module.css";
 
 interface DeliveryFormProps {
   pickupMode?: boolean;
@@ -15,6 +17,8 @@ interface DeliveryFormProps {
   setDocNumber: (value: string) => void;
 }
 
+const fieldClasses = { input: styles.input, label: styles.inputLabel };
+
 export default function DeliveryForm({
   pickupMode = false,
   address,
@@ -29,140 +33,115 @@ export default function DeliveryForm({
   setDocType,
   setDocNumber,
 }: DeliveryFormProps) {
+  const numericDoc = docType === "DNI" || docType === "RUC";
+
   return (
-    <div className="bg-neutral-800 p-6 rounded-2xl border border-neutral-700 shadow-lg space-y-6 animate-fade-in-up">
-      {/* La recogida no necesita una ruta ni una dirección de reparto. */}
-      {!pickupMode && <div>
-        <div className="flex items-center gap-3 mb-4 border-b border-neutral-700 pb-2">
-          <MapPin className="text-red-500" />
-          <h2 className="text-lg font-bold text-white">Ubicación de Entrega</h2>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">
-              Dirección exacta
-            </label>
-            <div className="flex gap-3">
-              <div className="flex-1 bg-neutral-900 border border-neutral-600 rounded-xl p-3 text-white flex items-center justify-between min-h-[50px]">
-                <span
-                  className={
-                    address ? "text-white line-clamp-1" : "text-gray-500 italic"
-                  }
-                >
-                  {address || "Selecciona tu ubicación en el mapa..."}
-                </span>
-                {coordinates && (
-                  <MapPin
-                    size={18}
-                    className="text-green-500 shrink-0 ml-2"
-                  />
-                )}
+    <>
+      {!pickupMode && (
+        <Paper className={styles.panel} shadow="sm">
+          <Box className={styles.panelInner}>
+            <div className={styles.panelHeader}>
+              <div className={styles.iconBadge}><MapPin size={21} /></div>
+              <div>
+                <Text className={styles.panelTitle}>Dirección de entrega</Text>
+                <Text className={styles.panelSubtitle}>Elige tu ubicación para comprobar la cobertura.</Text>
               </div>
-              <button
-                onClick={onOpenMap}
-                className="bg-neutral-700 hover:bg-neutral-600 text-white p-3 rounded-xl border border-neutral-600 transition-colors flex items-center gap-2 shrink-0"
-                title="Abrir mapa"
-              >
-                <Map size={20} />
-                <span className="hidden sm:inline font-medium">Mapa</span>
-              </button>
             </div>
-            {address && coordinates && (
-              <p className="text-xs text-gray-500 mt-2 font-mono">
-                GPS: {coordinates.lat.toFixed(5)}, {coordinates.lng.toFixed(5)}
-              </p>
-            )}
+            <Stack gap="lg">
+              <Box>
+                <Text className={styles.inputLabel}>Ubicación en el mapa</Text>
+                <Group wrap="nowrap" align="stretch" gap="sm">
+                  <Box style={{ minWidth: 0, flex: 1 }} className={styles.addressPreview}>
+                    <Text size="sm" c={address ? "#f8f4f1" : "#88828a"} truncate>
+                      {address || "Todavía no has seleccionado una ubicación"}
+                    </Text>
+                    {coordinates && <MapPin size={17} color="#76d4a4" style={{ flexShrink: 0 }} />}
+                  </Box>
+                  <Button variant="light" color="red" leftSection={<Map size={17} />} onClick={onOpenMap} radius="md" h={48}>
+                    Elegir
+                  </Button>
+                </Group>
+                {coordinates && (
+                  <Text mt={7} size="xs" c="#938d94">
+                    Ubicación marcada: {coordinates.lat.toFixed(5)}, {coordinates.lng.toFixed(5)}
+                  </Text>
+                )}
+              </Box>
+              <TextInput
+                label="Referencia (opcional)"
+                value={references}
+                onChange={(event) => setReferences(event.currentTarget.value)}
+                placeholder="Ej. Frente al parque, puerta negra..."
+                classNames={fieldClasses}
+              />
+            </Stack>
+          </Box>
+        </Paper>
+      )}
+
+      <Paper className={styles.panel} shadow="sm">
+        <Box className={styles.panelInner}>
+          <div className={styles.panelHeader}>
+            <div className={styles.iconBadge}><UserRound size={21} /></div>
+            <div>
+              <Text className={styles.panelTitle}>
+                {pickupMode ? "Datos de quien recogerá" : "Datos de quien recibirá"}
+              </Text>
+              <Text className={styles.panelSubtitle}>
+                Utilizaremos estos datos únicamente para identificar y coordinar tu pedido.
+              </Text>
+            </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">
-              Referencia (Opcional)
-            </label>
-            <input
-              type="text"
-              value={references}
-              onChange={(e) => setReferences(e.target.value)}
-              placeholder="Ej: Frente al parque, casa azul..."
-              className="w-full bg-neutral-900 border border-neutral-600 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-600 focus:outline-none transition-all placeholder-gray-600"
-            />
-          </div>
-        </div>
-      </div>}
-
-      {/* SECCIÓN 2: DATOS DE CONTACTO */}
-      <div>
-        <div className="flex items-center gap-3 mb-4 border-b border-neutral-700 pb-2">
-          <User className="text-red-500" />
-          <h2 className="text-lg font-bold text-white">
-            {pickupMode ? "Datos de quien recogerá" : "Datos de quien recibe"}
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Tipo de Documento */}
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">
-              Tipo Doc.
-            </label>
-            <select
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+            <Select
+              label="Tipo de documento"
               value={docType}
-              onChange={(e) => setDocType(e.target.value)}
-              className="w-full bg-neutral-900 border border-neutral-600 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-600 focus:outline-none transition-all appearance-none cursor-pointer"
-            >
-              <option value="DNI">DNI</option>
-              <option value="CE">Carnet Ext.</option>
-              <option value="RUC">RUC</option>
-              <option value="PASSPORT">Pasaporte</option>
-            </select>
-          </div>
-
-          {/* Número de Documento */}
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">
-              Nro. Documento
-            </label>
-            <input
-              type="text"
+              onChange={(value) => { if (value) setDocType(value); }}
+              data={[
+                { value: "DNI", label: "DNI" },
+                { value: "CE", label: "Carné de extranjería" },
+                { value: "RUC", label: "RUC" },
+                { value: "PASSPORT", label: "Pasaporte" },
+              ]}
+              allowDeselect={false}
+              classNames={{
+                input: styles.selectInput,
+                label: styles.inputLabel,
+                dropdown: styles.selectDropdown,
+                option: styles.selectOption,
+              }}
+            />
+            <TextInput
+              label="Número de documento"
               value={docNumber}
-              onChange={(e) => {
-                const val = e.target.value;
-                // Validación simple: solo números para DNI/RUC
-                if (
-                  (docType === "DNI" || docType === "RUC") &&
-                  !/^\d*$/.test(val)
-                )
-                  return;
-                setDocNumber(val);
+              onChange={(event) => {
+                const value = event.currentTarget.value;
+                if (numericDoc && !/^\d*$/.test(value)) return;
+                setDocNumber(value);
               }}
               maxLength={docType === "DNI" ? 8 : docType === "RUC" ? 11 : 15}
-              placeholder={
-                docType === "DNI" ? "8 dígitos" : "Número de documento"
-              }
-              className="w-full bg-neutral-900 border border-neutral-600 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-600 focus:outline-none transition-all placeholder-gray-600"
+              inputMode={numericDoc ? "numeric" : "text"}
+              placeholder={docType === "DNI" ? "8 dígitos" : "Número de documento"}
+              classNames={fieldClasses}
             />
-          </div>
-
-          {/* Teléfono */}
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-400 mb-2">
-              Teléfono de contacto
-            </label>
-            <input
-              type="tel"
+            <TextInput
+              label="Teléfono de contacto"
               value={phone}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (!/^\d*$/.test(val)) return;
-                setPhone(val);
+              onChange={(event) => {
+                const value = event.currentTarget.value;
+                if (!/^\d*$/.test(value)) return;
+                setPhone(value);
               }}
+              inputMode="tel"
+              autoComplete="tel"
               maxLength={9}
               placeholder="999 999 999"
-              className="w-full bg-neutral-900 border border-neutral-600 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-600 focus:outline-none transition-all placeholder-gray-600"
+              classNames={fieldClasses}
+              style={{ gridColumn: "1 / -1" }}
             />
-          </div>
-        </div>
-      </div>
-    </div>
+          </SimpleGrid>
+        </Box>
+      </Paper>
+    </>
   );
 }

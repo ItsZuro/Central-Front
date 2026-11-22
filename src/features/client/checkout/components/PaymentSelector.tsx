@@ -1,4 +1,7 @@
-import { Banknote, CreditCard, Smartphone } from "lucide-react";
+import { Alert, Box, Group, Paper, SimpleGrid, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Banknote, Check, CreditCard, Info, Smartphone } from "lucide-react";
+import type { ReactNode } from "react";
+import styles from "../Checkout.module.css";
 
 type PaymentMethodType = "card" | "cash" | "yape";
 
@@ -8,69 +11,110 @@ interface PaymentSelectorProps {
   onSelect: (method: PaymentMethodType) => void;
 }
 
+function PaymentOption({
+  method,
+  selected,
+  title,
+  description,
+  icon,
+  onSelect,
+}: {
+  method: PaymentMethodType;
+  selected: boolean;
+  title: string;
+  description: string;
+  icon: ReactNode;
+  onSelect: (method: PaymentMethodType) => void;
+}) {
+  return (
+    <UnstyledButton
+      className={styles.payOption + (selected ? " " + styles.payOptionActive : "")}
+      aria-pressed={selected}
+      onClick={() => onSelect(method)}
+      type="button"
+    >
+      <Group justify="space-between" w="100%">
+        <div className={styles.payIcon + (selected ? " " + styles.payIconSelected : "")}>
+          {icon}
+        </div>
+        {selected && <Check size={18} color="#ff828a" strokeWidth={3} />}
+      </Group>
+      <Box>
+        <Text className={styles.payTitle}>{title}</Text>
+        <Text className={styles.paySubtitle}>{description}</Text>
+      </Box>
+    </UnstyledButton>
+  );
+}
+
 export default function PaymentSelector({
   pickupMode = false,
   selectedMethod,
   onSelect,
 }: PaymentSelectorProps) {
+  const paymentMessage = selectedMethod === "card"
+    ? "El pago con tarjeta se realiza a través de la pasarela segura Niubiz."
+    : selectedMethod === "yape"
+      ? (pickupMode
+        ? "Yape / Plin se registra como pago pendiente. Pagarás al recoger el pedido; no se cobrará en línea."
+        : "El pago con Yape / Plin queda pendiente hasta la entrega. No se cobrará en línea.")
+      : (pickupMode
+        ? "Puedes pagar en efectivo al recoger el pedido. Se registrará con pago pendiente."
+        : "Pagarás en efectivo al recibir tu pedido.");
+
   return (
-    <div className="bg-neutral-800 p-6 rounded-2xl border border-neutral-700 shadow-lg">
-      <div className="flex items-center gap-3 mb-6 border-b border-neutral-700 pb-4">
-        <CreditCard className="text-red-500" />
-        <h2 className="text-xl font-bold">Método de Pago</h2>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <div
-          onClick={() => onSelect("card")}
-          className={`cursor-pointer border rounded-xl p-4 flex flex-col items-center gap-3 transition-all transform hover:scale-[1.02] ${
-            selectedMethod === "card"
-              ? "bg-red-600/10 border-red-600 text-red-500 shadow-[0_0_10px_rgba(220,38,38,0.2)]"
-              : "bg-neutral-900 border-neutral-600 hover:border-gray-400 text-gray-400"
-          }`}
-        >
-          <CreditCard size={32} />
-          <span className="font-bold text-sm">Tarjeta Online</span>
+    <Paper className={styles.panel} shadow="sm">
+      <Box className={styles.panelInner}>
+        <div className={styles.panelHeader}>
+          <div className={styles.iconBadge}><CreditCard size={21} /></div>
+          <div>
+            <Text className={styles.panelTitle}>¿Cómo deseas pagar?</Text>
+            <Text className={styles.panelSubtitle}>Selecciona tu método de pago preferido.</Text>
+          </div>
         </div>
-
-        <div
-          onClick={() => onSelect("yape")}
-          className={`cursor-pointer border rounded-xl p-4 flex flex-col items-center gap-3 transition-all transform hover:scale-[1.02] ${
-            selectedMethod === "yape"
-              ? "bg-purple-600/10 border-purple-500 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.2)]"
-              : "bg-neutral-900 border-neutral-600 hover:border-gray-400 text-gray-400"
-          }`}
-        >
-          <Smartphone size={32} />
-          <span className="font-bold text-sm">Yape / Plin</span>
-        </div>
-
-        <div
-          onClick={() => onSelect("cash")}
-          className={`cursor-pointer border rounded-xl p-4 flex flex-col items-center gap-3 transition-all transform hover:scale-[1.02] ${
-            selectedMethod === "cash"
-              ? "bg-green-600/10 border-green-500 text-green-400 shadow-[0_0_10px_rgba(74,222,128,0.2)]"
-              : "bg-neutral-900 border-neutral-600 hover:border-gray-400 text-gray-400"
-          }`}
-        >
-          <Banknote size={32} />
-          <span className="font-bold text-sm">{pickupMode ? "Pagar al recoger" : "Contraentrega"}</span>
-        </div>
-      </div>
-
-      <div className="mt-4 p-4 bg-neutral-900/80 border border-neutral-700 rounded-xl text-sm text-gray-400 flex items-start gap-3">
-        <div className="mt-1 text-red-500">
-          <div className="w-2 h-2 bg-current rounded-full" />
-        </div>
-        <p>
-          {selectedMethod === "card" &&
-            "Serás redirigido a la pasarela segura de Niubiz para completar tu compra."}
-          {selectedMethod === "yape" &&
-            (pickupMode ? "El pago quedará pendiente hasta recoger el pedido. No se cobra en línea." : "El repartidor te mostrará el código QR al momento de la entrega.")}
-          {selectedMethod === "cash" &&
-            (pickupMode ? "La orden se registra con pago pendiente. Puedes pagar en efectivo al recogerla cuando el local esté operativo." : "Pagas en efectivo al recibir. Por favor ten el monto exacto si es posible.")}
-        </p>
-      </div>
-    </div>
+        <Stack gap="md">
+          <SimpleGrid cols={{ base: 1, xs: 3 }} spacing="sm">
+            <PaymentOption
+              method="card"
+              selected={selectedMethod === "card"}
+              onSelect={onSelect}
+              icon={<CreditCard size={21} />}
+              title="Tarjeta"
+              description="Pago seguro en línea"
+            />
+            <PaymentOption
+              method="yape"
+              selected={selectedMethod === "yape"}
+              onSelect={onSelect}
+              icon={<Smartphone size={21} />}
+              title="Yape / Plin"
+              description="Pago al recibir"
+            />
+            <PaymentOption
+              method="cash"
+              selected={selectedMethod === "cash"}
+              onSelect={onSelect}
+              icon={<Banknote size={21} />}
+              title="Efectivo"
+              description={pickupMode ? "Al recoger" : "Contraentrega"}
+            />
+          </SimpleGrid>
+          <Alert
+            icon={<Info size={17} />}
+            color="gray"
+            variant="light"
+            radius="md"
+            styles={{
+              root: { background: "#29252b", border: "1px solid #403840" },
+              icon: { color: "#d8b37d" },
+              body: { color: "#d4ccd2" },
+              message: { color: "#d4ccd2", fontSize: 12, lineHeight: 1.6 },
+            }}
+          >
+            {paymentMessage}
+          </Alert>
+        </Stack>
+      </Box>
+    </Paper>
   );
 }
