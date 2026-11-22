@@ -245,7 +245,7 @@ export default function AdminProfile() {
         </Group>
       </Paper>
 
-      <SimpleGrid cols={{ base:1, lg:3 }} spacing="lg">
+      <div className="grid items-start gap-6 lg:grid-cols-[310px_minmax(0,1fr)]">
         <Stack gap="lg">
           <Paper withBorder radius="xl" shadow="xs" p="lg" style={{ border:panelBorder }}>
             <Group gap="sm">
@@ -282,7 +282,7 @@ export default function AdminProfile() {
           </Paper>
         </Stack>
 
-        <Stack gap="lg" style={{ gridColumn:"span 2" }}>
+        <Stack gap="lg">
           <Paper withBorder shadow="xs" radius="xl" style={{ border:panelBorder, overflow:"hidden" }}>
             <Group px="xl" py="lg">
               <ThemeIcon color="red" variant="light" radius="md" size={41}><UserRoundPen size={20}/></ThemeIcon>
@@ -349,7 +349,7 @@ export default function AdminProfile() {
             </form>
           </Paper>
         </Stack>
-      </SimpleGrid>
+      </div>
     </Stack>
   );
 }
