@@ -66,9 +66,9 @@ export default function PaymentSelector({
           {selectedMethod === "card" &&
             "Serás redirigido a la pasarela segura de Niubiz para completar tu compra."}
           {selectedMethod === "yape" &&
-            pickupMode ? "El pago quedará pendiente hasta recoger el pedido. No se cobra en línea." : "El repartidor te mostrará el código QR al momento de la entrega."}
+            (pickupMode ? "El pago quedará pendiente hasta recoger el pedido. No se cobra en línea." : "El repartidor te mostrará el código QR al momento de la entrega.")}
           {selectedMethod === "cash" &&
-            pickupMode ? "La orden se registra con pago pendiente. Puedes pagar en efectivo al recogerla cuando el local esté operativo." : "Pagas en efectivo al recibir. Por favor ten el monto exacto si es posible."}
+            (pickupMode ? "La orden se registra con pago pendiente. Puedes pagar en efectivo al recogerla cuando el local esté operativo." : "Pagas en efectivo al recibir. Por favor ten el monto exacto si es posible.")}
         </p>
       </div>
     </div>
