@@ -107,6 +107,8 @@ export default function MyReservations() {
       return response.data.data;
     },
     staleTime: 30_000,
+    // Cada visita a Mis reservas consulta el servidor sin exigir recarga manual.
+    refetchOnMount: "always",
   });
 
   const cancelReservation = useMutation({
