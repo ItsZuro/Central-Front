@@ -3,7 +3,8 @@ import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { Alert, Avatar, Badge, Box, Button, Checkbox, Divider, Group, Loader, Modal, Paper, PasswordInput, Select, SimpleGrid, Stack, Table, Text, TextInput, ThemeIcon, Title } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import axios from "axios";
-import { AlertCircle, Pencil, Plus, Search, ShieldCheck, UserRoundCheck, UsersRound } from "lucide-react";
+import { AlertCircle, Clock3, Pencil, Plus, Search, ShieldCheck, UserRoundCheck, UsersRound } from "lucide-react";
+import WeeklyScheduleEditor, { initialWeek, fromShifts, toShifts, validateWeek, type StaffShift, type WeeklyDay } from "./WeeklyScheduleEditor";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "react-toastify";
 import { Link } from "react-router-dom";
@@ -74,6 +75,12 @@ export default function Users() {
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [creating, setCreating] = useState(false);
   const [newUser, setNewUser] = useState<NewUser>(initialNewUser());
+  const [newWeek, setNewWeek] = useState<WeeklyDay[]>(initialWeek());
+  const [scheduleUser, setScheduleUser] = useState<AdminUser | null>(null);
+  const [scheduleWeek, setScheduleWeek] = useState<WeeklyDay[]>(initialWeek());
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [scheduleError, setScheduleError] = useState("");
   const [form, setForm] = useState<UserForm>({
     username: "", email: "", firstName: "", lastName: "", phone: "", enabled: true,
   });
@@ -108,6 +115,46 @@ export default function Users() {
     });
   };
 
+  const openSchedule = async (user: AdminUser) => {
+    if (user.roles.includes("ROLE_ADMIN")) return;
+    setScheduleUser(user);
+    setScheduleLoading(true);
+    setScheduleError("");
+    try {
+      const response = await api.get<{ success: boolean; message: string; data: StaffShift[] }>(
+        "users/admin/" + user.id + "/schedule"
+      );
+      if (!response.data.success) throw new Error(response.data.message);
+      setScheduleWeek(fromShifts(response.data.data || []));
+    } catch (err) {
+      setScheduleError(errorMessage(err));
+    } finally {
+      setScheduleLoading(false);
+    }
+  };
+
+  const saveSchedule = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!scheduleUser) return;
+    const validation = validateWeek(scheduleWeek);
+    if (validation) { setScheduleError(validation); return; }
+    setScheduleSaving(true);
+    setScheduleError("");
+    try {
+      const response = await api.put<{ success: boolean; message: string; data: StaffShift[] }>(
+        "users/admin/" + scheduleUser.id + "/schedule",
+        toShifts(scheduleWeek)
+      );
+      if (!response.data.success) throw new Error(response.data.message);
+      setScheduleUser(null);
+      toast.success("Horario laboral actualizado.");
+    } catch (err) {
+      setScheduleError(errorMessage(err));
+    } finally {
+      setScheduleSaving(false);
+    }
+  };
+
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!editing) return;
@@ -136,6 +183,10 @@ export default function Users() {
   const createStaff = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (newUser.password.length < 12) return setError("La contraseña inicial debe tener al menos 12 caracteres.");
+    if (newUser.role !== "ROLE_ADMIN") {
+      const validation = validateWeek(newWeek);
+      if (validation) { setError(validation); return; }
+    }
     setSaving(true);
     setError("");
     try {
@@ -144,9 +195,11 @@ export default function Users() {
         firstName: newUser.firstName.trim(), lastName: newUser.lastName.trim(),
         phone: newUser.phone.trim() || null, password: newUser.password,
         role: newUser.role,
+        schedules: newUser.role === "ROLE_ADMIN" ? [] : toShifts(newWeek),
       });
       setCreating(false);
       setNewUser(initialNewUser());
+      setNewWeek(initialWeek());
       toast.success("Cuenta del personal creada correctamente.");
       await load();
     } catch (err) {
@@ -223,10 +276,18 @@ export default function Users() {
                         Mi perfil
                       </Button>
                     ) : (
-                      <Button variant="light" size="xs" color="gray"
-                        leftSection={<Pencil size={14}/>} onClick={() => openEdit(user)}>
-                        Editar
-                      </Button>
+                      <Group gap="xs" justify="flex-end" wrap="nowrap">
+                        {!user.roles?.includes("ROLE_ADMIN") && (
+                          <Button variant="light" size="xs" color="blue"
+                            leftSection={<Clock3 size={14}/>} onClick={() => void openSchedule(user)}>
+                            Horarios
+                          </Button>
+                        )}
+                        <Button variant="light" size="xs" color="gray"
+                          leftSection={<Pencil size={14}/>} onClick={() => openEdit(user)}>
+                          Editar
+                        </Button>
+                      </Group>
                     )}
                   </Table.Td>
                 </Table.Tr>
@@ -236,7 +297,7 @@ export default function Users() {
         )}
       </Paper>
 
-      <Modal opened={creating} size="lg" title="Nuevo usuario de personal" onClose={() => {if (!saving) {setCreating(false); setError("");}}} centered>
+      <Modal opened={creating} size="xl" title="Nuevo usuario de personal" onClose={() => {if (!saving) {setCreating(false); setError("");}}} centered>
         <form onSubmit={(event) => void createStaff(event)}>
           <Stack gap="md">
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
@@ -248,8 +309,41 @@ export default function Users() {
               <TextInput label="Teléfono" value={newUser.phone} onChange={(e) => setNewUser({ ...newUser, phone: e.currentTarget.value })}/>
             </SimpleGrid>
             <PasswordInput required label="Contraseña inicial" description="Mínimo 12 caracteres. Compártela de forma privada con el empleado." minLength={12} maxLength={128} value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.currentTarget.value })}/>
+            <Divider my="xs" label="Turnos del personal" labelPosition="center" />
+            {newUser.role === "ROLE_ADMIN" ? (
+              <Alert color="blue">El administrador no está sujeto al control horario del personal operativo.</Alert>
+            ) : (
+              <WeeklyScheduleEditor value={newWeek} onChange={setNewWeek} disabled={saving} />
+            )}
             {error && <Alert color="red">{error}</Alert>}
             <Group justify="flex-end"><Button variant="default" disabled={saving} onClick={() => setCreating(false)}>Cancelar</Button><Button type="submit" loading={saving}>Crear cuenta</Button></Group>
+          </Stack>
+        </form>
+      </Modal>
+
+      <Modal
+        opened={scheduleUser !== null}
+        size="xl"
+        title={"Horario laboral · " + (scheduleUser?.firstName || "") + " " + (scheduleUser?.lastName || "")}
+        onClose={() => { if (!scheduleSaving) { setScheduleUser(null); setScheduleError(""); } }}
+        closeOnEscape={!scheduleSaving}
+        closeOnClickOutside={!scheduleSaving}
+        centered
+      >
+        <form onSubmit={(event) => void saveSchedule(event)}>
+          <Stack gap="md">
+            {scheduleLoading ? (
+              <Group justify="center" py="xl"><Loader color="red"/><Text size="sm">Cargando turnos...</Text></Group>
+            ) : (
+              <WeeklyScheduleEditor value={scheduleWeek} onChange={setScheduleWeek} disabled={scheduleSaving || !!scheduleError && !scheduleWeek.length}/>
+            )}
+            {scheduleError && <Alert color="red" icon={<AlertCircle size={17}/>} title="No se pudo cargar o guardar el horario">{scheduleError}</Alert>}
+            <Group justify="flex-end">
+              <Button variant="default" disabled={scheduleSaving}
+                onClick={() => {setScheduleUser(null);setScheduleError("");}}>Cancelar</Button>
+              <Button type="submit" disabled={scheduleLoading || scheduleWeek.length === 0 || !!scheduleError && !scheduleWeek.some((day) => day.enabled)}
+                loading={scheduleSaving}>Guardar horario</Button>
+            </Group>
           </Stack>
         </form>
       </Modal>
