@@ -15,6 +15,9 @@ interface Product {
   preparationTimeMinutes: number;
   active: boolean;
   isCombo?: boolean;
+  ingredients?: Array<{ ingredientId: number; quantity: number }>;
+  extras?: Array<{ name: string; price: number }>;
+  comboItems?: Array<{ simpleProductId: number; quantity: number }>;
 }
 
 interface Category {
@@ -91,6 +94,10 @@ export default function Products() {
     setForm({ ...blankProduct(), categoryId: categories[0]?.id ?? 0 });
   };
   const openEdit = (product: Product) => {
+    if (product.isCombo) {
+      setError("La edición de combos necesita una pantalla específica. Puedes ocultarlo o eliminarlo, pero no convertirlo accidentalmente en un plato simple.");
+      return;
+    }
     setError("");
     setEditingId(product.id);
     setForm({
@@ -115,6 +122,7 @@ export default function Products() {
     setSaving(true);
     setError("");
     try {
+      const original = typeof editingId === "number" ? products.find((p) => p.id === editingId) : undefined;
       const payload = {
         name: form.name.trim(),
         description: form.description.trim(),
@@ -124,9 +132,10 @@ export default function Products() {
         preparationTimeMinutes: Number(form.preparationTimeMinutes),
         active: Boolean(form.active),
         isCombo: false,
-        ingredients: [],
+        // Conservar las relaciones existentes del producto al actualizar sus datos básicos.
+        ingredients: original?.ingredients?.map((i) => ({ ingredientId: i.ingredientId, quantity: i.quantity })) ?? [],
         comboItems: [],
-        extras: [],
+        extras: original?.extras?.map((e) => ({ name: e.name, price: e.price })) ?? [],
       };
       if (editingId === "new") {
         await api.post("products", payload);
