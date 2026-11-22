@@ -22,6 +22,7 @@ import PaymentSuccess from "@/features/client/payment-success/PaymentSuccess";
 import PaymentValidate from "@/features/client/payment-success/PaymentValidate";
 import Profile from "@/features/client/profile/Profile";
 import Reservations from "@/features/client/reservations/Reservations";
+import MyReservations from "@/features/client/reservations/MyReservations";
 import ProductsSupplier from "@/features/supplier/products/Products";
 import PageWaiter from "@/features/waiter/pageWaiter";
 import AssignedDeliveries from "@/features/driver/AssignedDeliveries";
@@ -53,6 +54,10 @@ export default function AppRoutes() {
         <Route
           path="/my-orders"
           element={<PurchaseHistory />}
+        />
+        <Route
+          path="/my-reservations"
+          element={<MyReservations />}
         />
         <Route
           path="/profile"
