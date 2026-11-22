@@ -1,4 +1,5 @@
 import { useAuthStore } from "@/core/stores/auth/auth.store";
+import { useAdminUiStore } from "@/core/stores/admin/admin-ui.store";
 import { logoutFromServer } from "@/core/services/auth/logout";
 import { ChartNoAxesCombined, ChevronRight, LayoutDashboard, LogOut, Menu, ShieldCheck, Tags, UtensilsCrossed, UsersRound, X } from "lucide-react";
 import { useState } from "react";
@@ -13,7 +14,8 @@ const links = [
 ];
 
 export default function Sidebar() {
-  const [open, setOpen] = useState(false);
+  const open = useAdminUiStore((state) => state.sidebarOpen);
+  const setOpen = (value: boolean) => value ? useAdminUiStore.getState().openSidebar() : useAdminUiStore.getState().closeSidebar();
   const [loggingOut, setLoggingOut] = useState(false);
   const user = useAuthStore((state) => state.user);
   const navigate = useNavigate();
