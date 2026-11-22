@@ -3,7 +3,7 @@ import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { Alert, Avatar, Badge, Box, Button, Checkbox, Divider, Group, Loader, Modal, Paper, PasswordInput, Select, SimpleGrid, Stack, Table, Text, TextInput, ThemeIcon, Title } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import axios from "axios";
-import { AlertCircle, Clock3, Pencil, Plus, Search, ShieldCheck, UserRoundCheck, UsersRound } from "lucide-react";
+import { AlertCircle, Clock3, KeyRound, Pencil, Plus, Search, ShieldCheck, UserRoundCheck, UsersRound } from "lucide-react";
 import WeeklyScheduleEditor, { initialWeek, fromShifts, toShifts, validateWeek, type StaffShift, type WeeklyDay } from "./WeeklyScheduleEditor";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "react-toastify";
@@ -82,6 +82,12 @@ export default function Users() {
   const [scheduleReady, setScheduleReady] = useState(false);
   const [scheduleSaving, setScheduleSaving] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
+  const [passwordUser, setPasswordUser] = useState<AdminUser | null>(null);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
   const [form, setForm] = useState<UserForm>({
     username: "", email: "", firstName: "", lastName: "", phone: "", enabled: true,
   });
@@ -155,6 +161,64 @@ export default function Users() {
       setScheduleError(errorMessage(err));
     } finally {
       setScheduleSaving(false);
+    }
+  };
+
+  const clearPasswordForm = () => {
+    setAdminPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordError("");
+  };
+
+  const closePasswordReset = () => {
+    if (passwordSaving) return;
+    setPasswordUser(null);
+    clearPasswordForm();
+  };
+
+  const openPasswordReset = (user: AdminUser) => {
+    if (isCurrentAccount(user) || user.roles?.includes("ROLE_ADMIN")) return;
+    setEditing(null);
+    clearPasswordForm();
+    setPasswordUser(user);
+  };
+
+  const resetStaffPassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!passwordUser || passwordSaving) return;
+    if (newPassword.length < 12 || newPassword.length > 128) {
+      setPasswordError("La nueva contraseña debe tener entre 12 y 128 caracteres.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("La confirmación no coincide con la nueva contraseña.");
+      return;
+    }
+    if (!adminPassword) {
+      setPasswordError("Confirma tu propia contraseña de administrador.");
+      return;
+    }
+    if (adminPassword === newPassword) {
+      setPasswordError("No utilices tu propia contraseña para otra cuenta.");
+      return;
+    }
+
+    setPasswordSaving(true);
+    setPasswordError("");
+    try {
+      const response = await api.put<{ success: boolean; message: string }>(
+        "users/admin/" + passwordUser.id + "/reset-password",
+        { adminPassword, newPassword }
+      );
+      if (!response.data.success) throw new Error(response.data.message);
+      setPasswordUser(null);
+      clearPasswordForm();
+      toast.success("Contraseña restablecida. El empleado deberá iniciar sesión otra vez.");
+    } catch (err) {
+      setPasswordError(errorMessage(err));
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -351,6 +415,60 @@ export default function Users() {
         </form>
       </Modal>
 
+      <Modal
+        opened={passwordUser !== null}
+        title={"Restablecer contraseña · " + (passwordUser?.firstName || "") + " " + (passwordUser?.lastName || "")}
+        size="lg"
+        centered
+        onClose={closePasswordReset}
+        closeOnEscape={!passwordSaving}
+        closeOnClickOutside={!passwordSaving}
+      >
+        <form onSubmit={(event) => void resetStaffPassword(event)}>
+          <Stack gap="md">
+            <Alert color="orange" title="Operación de seguridad" icon={<KeyRound size={18}/>}>
+              La contraseña anterior no se puede consultar. Al guardar la nueva, se cerrarán las sesiones activas
+              del empleado. Comunica la contraseña nueva de forma privada.
+            </Alert>
+            <PasswordInput
+              label="Nueva contraseña del empleado"
+              description="Entre 12 y 128 caracteres."
+              required minLength={12} maxLength={128}
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.currentTarget.value)}
+              disabled={passwordSaving}
+            />
+            <PasswordInput
+              label="Confirmar nueva contraseña"
+              required minLength={12} maxLength={128}
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.currentTarget.value)}
+              disabled={passwordSaving}
+            />
+            <Divider my="xs" label="Confirmación del administrador" labelPosition="center" />
+            <PasswordInput
+              label="Tu contraseña actual de administrador"
+              description="Se utilizará únicamente para autorizar este restablecimiento."
+              required
+              autoComplete="current-password"
+              value={adminPassword}
+              onChange={(event) => setAdminPassword(event.currentTarget.value)}
+              disabled={passwordSaving}
+            />
+            {passwordError && <Alert color="red" icon={<AlertCircle size={18}/>}>{passwordError}</Alert>}
+            <Group justify="flex-end">
+              <Button variant="default" type="button" disabled={passwordSaving} onClick={closePasswordReset}>Cancelar</Button>
+              <Button type="submit" color="red" loading={passwordSaving}
+                disabled={!adminPassword || newPassword.length < 12 || confirmPassword !== newPassword}>
+                Confirmar restablecimiento
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
+
       <Modal opened={editing !== null} size="lg" title="Editar usuario" onClose={() => {if (!saving) {setEditing(null); setError("");}}} centered>
         <form onSubmit={(event) => void save(event)}>
           <Stack gap="md">
@@ -362,6 +480,15 @@ export default function Users() {
             </SimpleGrid>
             <TextInput label="Teléfono" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.currentTarget.value })}/>
             <Checkbox color="red" label="Cuenta activa" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.currentTarget.checked })}/>
+            {editing && !editing.roles?.includes("ROLE_ADMIN") && (
+              <Group justify="space-between" gap="sm" wrap="wrap">
+                <Text size="xs" c="dimmed">¿El empleado olvidó su contraseña?</Text>
+                <Button type="button" variant="light" color="orange" size="sm"
+                  leftSection={<KeyRound size={16}/>} onClick={() => openPasswordReset(editing)}>
+                  Restablecer contraseña
+                </Button>
+              </Group>
+            )}
             {error && <Alert color="red">{error}</Alert>}
             <Group justify="flex-end"><Button variant="default" disabled={saving} onClick={() => setEditing(null)}>Cancelar</Button><Button type="submit" loading={saving}>Guardar cambios</Button></Group>
           </Stack>
