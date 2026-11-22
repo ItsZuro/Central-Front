@@ -146,8 +146,8 @@ export default function AppRoutes() {
         />
       </Route>
 
-      {/* Repartos: se utiliza el rol de personal WAITER existente. */}
-      <Route element={<PrivateRoute allowedRoles={["ROLE_WAITER"]} />}>
+      {/* Área de reparto: rol independiente ROLE_DRIVER. */}
+      <Route element={<PrivateRoute allowedRoles={["ROLE_DRIVER"]} />}>
         <Route path="/driver" element={<AssignedDeliveries />} />
       </Route>
 
