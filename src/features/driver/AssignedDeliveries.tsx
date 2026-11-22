@@ -1,7 +1,7 @@
 import { logoutFromServer } from "@/core/services/auth/logout";
 import { orderService } from "@/core/services/order/order.service";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
-import type { OrderResponse } from "@/core/types/order/order.model";
+import type { AvailableDeliveryResponse, OrderResponse } from "@/core/types/order/order.model";
 import {
   Alert, Avatar, Badge, Box, Button, Center, Divider, Group, Loader, Modal,
   Paper, ScrollArea, SegmentedControl, SimpleGrid, Stack, Text, ThemeIcon, Title,
@@ -19,7 +19,7 @@ import { toast } from "react-toastify";
 import styles from "./Driver.module.css";
 
 type DeliveryStatus = "OUT_FOR_DELIVERY" | "DELIVERED";
-type Filter = "all" | "pending" | "route" | "delivered";
+type Filter = "available" | "all" | "pending" | "route" | "delivered";
 const muted = "#bdb3bf";
 const money = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" });
 const statusNames: Record<string, string> = {
@@ -254,7 +254,8 @@ export default function AssignedDeliveries() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("available");
+  const [toAccept, setToAccept] = useState<AvailableDeliveryResponse | null>(null);
   const [toDeliver, setToDeliver] = useState<OrderResponse | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -267,6 +268,40 @@ export default function AssignedDeliveries() {
     },
     refetchInterval: 15_000,
     refetchOnWindowFocus: true,
+  });
+
+  const available = useQuery({
+    queryKey: ["driver", "deliveries", "available"],
+    queryFn: async () => {
+      const response = await orderService.getAvailableDeliveries();
+      if (!response.success) throw new Error(response.message || "No se pudieron cargar pedidos disponibles.");
+      return response.data || [];
+    },
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+  });
+
+  const accept = useMutation({
+    mutationFn: async (orderId: number) => {
+      const response = await orderService.acceptDelivery(orderId);
+      if (!response.success) throw new Error(response.message || "No se pudo aceptar el pedido.");
+      return response.data;
+    },
+    onSuccess: async (order) => {
+      toast.success("Pedido #" + order.id + " aceptado. Ahora aparece en Mis pedidos.");
+      setToAccept(null);
+      setFilter("all");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["driver", "deliveries", "mine"] }),
+        queryClient.invalidateQueries({ queryKey: ["driver", "deliveries", "available"] }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error(errorText(error) + " Actualizamos las ofertas disponibles.");
+      setToAccept(null);
+      void queryClient.invalidateQueries({ queryKey: ["driver", "deliveries", "available"] });
+      void queryClient.invalidateQueries({ queryKey: ["driver", "deliveries", "mine"] });
+    },
   });
 
   const changeStatus = useMutation({
@@ -289,6 +324,7 @@ export default function AssignedDeliveries() {
   });
 
   const allOrders = deliveries.data ?? [];
+  const availableOffers = available.data ?? [];
   const stats = useMemo(() => ({
     assigned: allOrders.length,
     pending: allOrders.filter((o) => isPending(o.statusCode)).length,
@@ -359,11 +395,11 @@ export default function AssignedDeliveries() {
                   </Text>
                 </Group>
                 <Title c="white" order={2} fw={850}>
-                  Tus repartos, organizados en un solo lugar
+                  Elige tus entregas o recibe asignaciones
                 </Title>
                 <Text size="sm" mt="sm" c="#e7d7e0" maw={640} lh={1.65}>
-                  Revisa los pedidos asignados, abre la ruta de entrega y confirma cada reparto
-                  cuando realmente haya llegado al cliente.
+                  Consulta los pedidos disponibles para aceptar uno por tu cuenta, o continúa
+                  con los que te haya asignado el gerente. Solo los pagados y listos aparecen como disponibles.
                 </Text>
               </Box>
               <Badge size="lg" variant="light" color="red"
@@ -375,8 +411,8 @@ export default function AssignedDeliveries() {
         </Paper>
 
         <SimpleGrid cols={{ base: 2, md: 4 }} spacing="md" mt="lg">
-          <Metric label="Repartos asignados" value={deliveries.isPending || deliveries.isError ? "—" : stats.assigned}
-            hint="En la lista de tu cuenta" Icon={ClipboardList} color="red"/>
+          <Metric label="Disponibles para aceptar" value={available.isPending || available.isError ? "—" : availableOffers.length}
+            hint="Sin asignar y listos" Icon={ClipboardList} color="red"/>
           <Metric label="Listos para recoger" value={deliveries.isPending || deliveries.isError ? "—" : stats.ready}
             hint="Puedes iniciar la ruta" Icon={Clock3} color="orange"/>
           <Metric label="En ruta" value={deliveries.isPending || deliveries.isError ? "—" : stats.route}
@@ -389,11 +425,11 @@ export default function AssignedDeliveries() {
           <Box>
             <Group gap="xs">
               <History size={21} color="#f27a8e"/>
-              <Title order={2} c="white" size="h3">Mis pedidos</Title>
+              <Title order={2} c="white" size="h3">Mis repartos y pedidos disponibles</Title>
               <Badge variant="light" color="gray">{stats.pending} pendientes</Badge>
             </Group>
             <Text c={muted} size="xs" mt={6}>
-              Solo se muestran las entregas asignadas a tu cuenta.
+              Puedes aceptar un pedido libre o gestionar tus repartos previamente asignados.
             </Text>
           </Box>
         </Group>
@@ -401,14 +437,79 @@ export default function AssignedDeliveries() {
           <SegmentedControl className={styles.segmented} color="red"
             value={filter} onChange={(value) => setFilter(value as Filter)}
             data={[
-              { value: "all", label: "Todos" },
+              { value: "available", label: "Disponibles" },
+              { value: "all", label: "Mis pedidos" },
               { value: "pending", label: "Pendientes" },
               { value: "route", label: "En ruta" },
               { value: "delivered", label: "Entregados" },
             ]}/>
         </ScrollArea>
 
-        {deliveries.isError && (
+        {filter === "available" && (
+          available.isError ? (
+            <Alert icon={<AlertCircle size={18}/>} color="red"
+              title="No se pudieron consultar pedidos disponibles" mb="lg">
+              {errorText(available.error)}
+              <Box mt="sm"><Button variant="light" color="red" size="xs"
+                onClick={() => void available.refetch()}>Reintentar</Button></Box>
+            </Alert>
+          ) : available.isPending ? (
+            <Center py={65}><Stack align="center" gap="sm"><Loader color="red"/>
+              <Text c={muted} size="sm">Buscando repartos disponibles...</Text>
+            </Stack></Center>
+          ) : availableOffers.length === 0 ? (
+            <Paper radius="xl" p="xl" className={styles.emptyState}>
+              <Stack align="center" gap="sm">
+                <ThemeIcon size={60} radius="xl" color="gray" variant="light"><PackageCheck size={28}/></ThemeIcon>
+                <Title order={3} c="white" ta="center">No hay pedidos disponibles</Title>
+                <Text c={muted} size="sm" ta="center" maw={480}>
+                  Cuando cocina termine un delivery pagado y todavía no tenga repartidor,
+                  aparecerá aquí. También puedes consultar las entregas que te asignaron.
+                </Text>
+                <Button variant="default" mt="xs" onClick={() => setFilter("all")}>Ver mis pedidos</Button>
+              </Stack>
+            </Paper>
+          ) : (
+            <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+              {availableOffers.map((offer) => (
+                <Paper key={offer.orderId} className={styles.deliveryCard} radius="xl" p="lg">
+                  <Stack gap="md">
+                    <Group justify="space-between" align="flex-start" gap="xs">
+                      <Box>
+                        <Text size="xs" c="#f58a99" fw={850} tt="uppercase" lts={1}>
+                          Disponible para aceptar
+                        </Text>
+                        <Title order={3} mt={5} c="white">Pedido #{offer.orderId}</Title>
+                      </Box>
+                      <Badge color="teal" variant="light" size="lg">Pago confirmado · Listo</Badge>
+                    </Group>
+                    <Divider color="#514752"/>
+                    <Group gap="sm" wrap="nowrap">
+                      <MapPin size={18} color="#f78c9c"/>
+                      <Box>
+                        <Text c={muted} size="xs">Zona aproximada de entrega</Text>
+                        <Text c="white" fw={750} size="sm">{offer.deliveryArea || "Zona no especificada"}</Text>
+                      </Box>
+                    </Group>
+                    <Group gap="sm" wrap="nowrap">
+                      <ShoppingBag size={18} color="#f78c9c"/>
+                      <Text c="#e8e0e9" size="sm">{offer.itemCount} producto(s) · Pedido preparado</Text>
+                    </Group>
+                    <Text c={muted} size="xs">
+                      La dirección exacta y los datos del cliente se mostrarán solo después de aceptar.
+                    </Text>
+                    <Button color="red" fullWidth leftSection={<CheckCircle2 size={17}/>}
+                      disabled={accept.isPending} onClick={() => setToAccept(offer)}>
+                      Aceptar este reparto
+                    </Button>
+                  </Stack>
+                </Paper>
+              ))}
+            </SimpleGrid>
+          )
+        )}
+
+        {filter !== "available" && deliveries.isError && (
           <Alert icon={<AlertCircle size={18}/>} color="red"
             title="No se pudieron consultar tus repartos" mb="lg">
             {errorText(deliveries.error)}
@@ -421,7 +522,7 @@ export default function AssignedDeliveries() {
           </Alert>
         )}
 
-        {deliveries.isPending ? (
+        {filter !== "available" && (deliveries.isPending ? (
           <Center py={75}>
             <Stack align="center" gap="sm">
               <Loader color="red"/>
@@ -439,7 +540,7 @@ export default function AssignedDeliveries() {
                 onDeliver={setToDeliver}/>
             ))}
           </SimpleGrid>
-        )}
+        ))}
 
         <Paper radius="lg" p="md" className={styles.panel} mt="lg">
           <Group align="flex-start" gap="sm">
@@ -449,14 +550,43 @@ export default function AssignedDeliveries() {
             <Box style={{ flex: 1 }}>
               <Text c="white" fw={750} size="sm">Acceso exclusivo a tus repartos</Text>
               <Text c={muted} size="xs" mt={5} lh={1.6}>
-                El repartidor solo puede actualizar entregas asignadas. Los cobros se gestionan en caja,
-                la preparación en cocina y las asignaciones en administración.
-                Esta vista se consulta automáticamente cada 15 segundos.
+                Puedes aceptar un delivery sin asignación que esté pagado y listo,
+                o recibir uno asignado por el gerente. Al aceptarlo pasa a «Mis pedidos»;
+                después podrás iniciar la ruta y confirmar la entrega. No se permiten cobros
+                ni cambios de cocina desde esta pantalla.
               </Text>
             </Box>
           </Group>
         </Paper>
       </Box>
+
+      <Modal opened={toAccept !== null} centered size="md"
+        onClose={() => { if (!accept.isPending) setToAccept(null); }}
+        closeOnClickOutside={!accept.isPending} closeOnEscape={!accept.isPending}
+        title="Aceptar reparto" classNames={{
+          content: styles.modalContent, header: styles.modalHeader,
+          title: styles.modalTitle, close: styles.modalClose,
+        }}>
+        <Stack gap="md">
+          <Title c="white" order={3}>Pedido #{toAccept?.orderId}</Title>
+          <Text c={muted} size="sm">
+            Zona: {toAccept?.deliveryArea}. Al aceptar quedarás como responsable de la entrega.
+            El pedido seguirá «Listo para recoger» hasta que inicies el reparto.
+          </Text>
+          <Alert color="blue" icon={<ShieldCheck size={18}/>}>
+            Si otro repartidor o el gerente asigna el pedido primero, el servidor rechazará
+            esta aceptación y actualizará la lista.
+          </Alert>
+          <Group justify="flex-end">
+            <Button variant="default" disabled={accept.isPending}
+              onClick={() => setToAccept(null)}>Cancelar</Button>
+            <Button color="red" loading={accept.isPending}
+              onClick={() => { if (toAccept) accept.mutate(toAccept.orderId); }}>
+              Confirmar aceptación
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <Modal opened={toDeliver !== null} centered size="md"
         onClose={() => { if (!changeStatus.isPending) setToDeliver(null); }}
