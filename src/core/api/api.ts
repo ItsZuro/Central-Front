@@ -32,15 +32,15 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const isLoginRequest = error.config?.url?.includes("login");
+    const wasAuthenticated = Boolean(error.config?.headers?.Authorization);
 
-    if (
-      error.response &&
-      error.response.status === 401 &&
-      !isLoginRequest
-    ) {
+    // Una consulta pública de un invitado puede responder 401 si el endpoint
+    // exige permisos. Eso NO debe expulsarlo del menú ni del checkout.
+    // Para sesiones vencidas, limpiar las credenciales y dejar que los guards
+    // de rutas privadas gestionen el login; no forzar un salto de página.
+    if (error.response?.status === 401 && !isLoginRequest && wasAuthenticated) {
       useAuthStore.getState().logout();
-      window.location.href = "/auth/login";
-      toast.warn("Sesión expirada o no autorizada.");
+      toast.warn("Tu sesión ha expirado. Inicia sesión para continuar.");
     }
 
     return Promise.reject(error);
