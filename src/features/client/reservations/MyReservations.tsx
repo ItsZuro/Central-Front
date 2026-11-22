@@ -199,7 +199,7 @@ export default function MyReservations() {
                       </Badge>
                     </Group>
                     <Divider color="#433941" my="md" />
-                    <Group gap={{ base: "sm", sm: "lg" }} wrap="wrap">
+                    <Group gap="md" wrap="wrap">
                       <Group gap={6}><CalendarDays size={17} color="#db8c94" /><Text c="#f3e8ed" size="sm">{prettyDate(reservation.reservationDate)}</Text></Group>
                       <Group gap={6}><Clock3 size={17} color="#db8c94" /><Text c="#f3e8ed" size="sm">{reservation.reservationTime.slice(0, 5)}</Text></Group>
                       <Group gap={6}><Users size={17} color="#db8c94" /><Text c="#f3e8ed" size="sm">{reservation.numberOfPeople} personas</Text></Group>
