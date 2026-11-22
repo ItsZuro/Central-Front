@@ -43,6 +43,7 @@ const initialNewUser = (): NewUser => ({
 });
 const roleOptions = [
   { value: "ROLE_WAITER", label: "Mesero" },
+  { value: "ROLE_DRIVER", label: "Repartidor" },
   { value: "ROLE_CHEF", label: "Cocinero" },
   { value: "ROLE_CASHIER", label: "Cajero" },
   { value: "ROLE_MANAGER", label: "Gerente" },
