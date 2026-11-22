@@ -1,8 +1,8 @@
 import { api } from "@/core/api/api";
-import { ActionIcon, Alert, Badge, Box, Button, Center, Checkbox, Divider, Group, Loader, Modal, NumberInput, Paper, Select, SimpleGrid, Stack, Table, Text, Textarea, TextInput, ThemeIcon, Title, Tooltip } from "@mantine/core";
+import { ActionIcon, Alert, Badge, Box, Button, Center, Checkbox, Divider, FileInput, Group, Loader, Modal, NumberInput, Paper, Select, SimpleGrid, Stack, Table, Text, Textarea, TextInput, ThemeIcon, Title, Tooltip } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import axios from "axios";
-import { AlertCircle, CheckCircle2, CircleOff, Clock3, ImageOff, Pencil, Plus, Search, Tags, Trash2, UtensilsCrossed } from "lucide-react";
+import { AlertCircle, CheckCircle2, CircleOff, Clock3, ImageOff, ImageUp, Pencil, Plus, Search, Tags, Trash2, UtensilsCrossed, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -21,6 +21,11 @@ interface Product {
 }
 
 interface Category { id: number; name: string }
+interface UploadResponse { id: number; fileUrl: string }
+interface ApiEnvelope<T> { success: boolean; message: string; data: T }
+type PendingUpload = { file: File; id: number; url: string };
+const imageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const maxProductImageBytes = 5 * 1024 * 1024;
 
 interface ProductForm {
   name: string;
@@ -59,8 +64,53 @@ export default function Products() {
   const [debouncedSearch] = useDebouncedValue(search, 180);
   const [status, setStatus] = useState("all");
   const [editingId, setEditingId] = useState<number | "new" | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
+  const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null);
   const [deleting, setDeleting] = useState<Product | null>(null);
   const [form, setForm] = useState<ProductForm>(blankProduct());
+
+  useEffect(() => {
+    if (!imageFile) {
+      setLocalPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(imageFile);
+    setLocalPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
+
+  const discardPendingUpload = async (upload: PendingUpload | null) => {
+    if (!upload) return;
+    try {
+      await api.delete("files/delete/" + upload.id);
+    } catch {
+      // La eliminación es de mejor esfuerzo; nunca borrar la imagen de un producto guardado.
+    }
+  };
+
+  const closeEditor = () => {
+    if (saving) return;
+    void discardPendingUpload(pendingUpload);
+    setPendingUpload(null);
+    setImageFile(null);
+    setEditingId(null);
+    setError("");
+  };
+
+  const selectImage = (file: File | null) => {
+    if (file && (!imageTypes.has(file.type) || file.size > maxProductImageBytes)) {
+      setError("Selecciona una imagen JPG, PNG o WEBP de máximo 5 MB.");
+      setImageFile(null);
+      return;
+    }
+    if (pendingUpload && pendingUpload.file !== file) {
+      void discardPendingUpload(pendingUpload);
+      setPendingUpload(null);
+    }
+    setImageFile(file);
+    setError("");
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,6 +141,8 @@ export default function Products() {
   }), [products, categories, status, debouncedSearch]);
 
   const openNew = () => {
+    setImageFile(null);
+    setPendingUpload(null);
     setForm({ ...blankProduct(), categoryId: categories[0]?.id ?? 0 });
     setError("");
     setEditingId("new");
@@ -103,6 +155,8 @@ export default function Products() {
       toast.info(message);
       return;
     }
+    setImageFile(null);
+    setPendingUpload(null);
     setForm({
       name: product.name,
       description: product.description || "",
@@ -123,16 +177,38 @@ export default function Products() {
     if (!Number.isFinite(form.price) || form.price < 0) return setError("Introduce un precio válido.");
     if (!Number.isInteger(form.preparationTimeMinutes) || form.preparationTimeMinutes < 1) return setError("La preparación debe durar al menos un minuto.");
     if (form.imageUrl && !/^https?:\/\//i.test(form.imageUrl)) return setError("La imagen debe tener una URL http o https.");
+    if (imageFile && (!imageTypes.has(imageFile.type) || imageFile.size > maxProductImageBytes)) {
+      return setError("Selecciona una imagen JPG, PNG o WEBP de máximo 5 MB.");
+    }
 
     setSaving(true);
     setError("");
     try {
+      let finalImageUrl = form.imageUrl.trim() || null;
+      let uploaded = pendingUpload;
+      if (imageFile) {
+        if (!uploaded || uploaded.file !== imageFile) {
+          const body = new FormData();
+          body.append("file", imageFile);
+          body.append("folder", "products");
+          const result = await api.post<ApiEnvelope<UploadResponse>>("files/upload", body, {
+            headers: { "Content-Type": undefined },
+            timeout: 45000,
+          });
+          if (!result.data.success || !result.data.data?.fileUrl) {
+            throw new Error(result.data.message || "La imagen no pudo guardarse en S3.");
+          }
+          uploaded = { file: imageFile, id: result.data.data.id, url: result.data.data.fileUrl };
+          setPendingUpload(uploaded);
+        }
+        finalImageUrl = uploaded.url;
+      }
       const payload = {
         name: form.name.trim(),
         description: form.description.trim(),
         price: form.price,
         categoryId: form.categoryId,
-        imageUrl: form.imageUrl.trim() || null,
+        imageUrl: finalImageUrl,
         preparationTimeMinutes: form.preparationTimeMinutes,
         active: form.active,
         isCombo: false,
@@ -146,6 +222,9 @@ export default function Products() {
         await api.put("products/" + editingId, payload);
         toast.success("Producto actualizado.");
       }
+      // El archivo ya está asociado al producto, por lo tanto NO se debe eliminar.
+      setPendingUpload(null);
+      setImageFile(null);
       setEditingId(null);
       setNotice("El catálogo se actualizó correctamente.");
       await load();
@@ -270,7 +349,8 @@ export default function Products() {
         )}
       </Paper>
 
-      <Modal opened={editingId !== null} onClose={() => { if (!saving) {setEditingId(null); setError("");} }} title={editingId === "new" ? "Nuevo plato" : "Editar plato"} size="lg" centered>
+      <Modal opened={editingId !== null} onClose={closeEditor} closeOnClickOutside={!saving} closeOnEscape={!saving}
+        title={editingId === "new" ? "Nuevo plato" : "Editar plato"} size="lg" centered>
         <form onSubmit={(event) => void save(event)}>
           <Stack gap="md">
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
@@ -280,7 +360,50 @@ export default function Products() {
               <NumberInput label="Preparación (min)" required min={1} allowDecimal={false} value={form.preparationTimeMinutes} onChange={(value) => setForm({ ...form, preparationTimeMinutes: Number(value) })}/>
             </SimpleGrid>
             <Textarea label="Descripción" required minRows={3} value={form.description} onChange={(event) => setForm({ ...form, description: event.currentTarget.value })}/>
-            <TextInput label="URL de imagen (opcional)" type="url" placeholder="https://..." value={form.imageUrl} onChange={(event) => setForm({ ...form, imageUrl: event.currentTarget.value })}/>
+            <Paper p="md" radius="lg" withBorder bg="#fcfaf9">
+              <Group gap="xs" mb="sm">
+                <ImageUp size={18} color="#d93e4f" />
+                <Text fw={750} size="sm">Imagen del producto</Text>
+                <Badge color="red" variant="light" size="xs">S3</Badge>
+              </Group>
+              <FileInput
+                label="Subir desde tu dispositivo (opcional)"
+                placeholder="Seleccionar imagen..."
+                accept="image/jpeg,image/png,image/webp"
+                leftSection={<ImageUp size={16}/>}
+                value={imageFile}
+                onChange={selectImage}
+                clearable
+                description="JPG, PNG o WEBP · Máximo 5 MB. Se subirá al guardar el plato."
+              />
+              {(localPreview || form.imageUrl) && (
+                <Group gap="md" mt="md" align="center" wrap="nowrap">
+                  <Box style={{ width: 116, height: 94, borderRadius: 10, overflow: "hidden",
+                    border: "1px solid #e5d7d7", background: "#fff", flexShrink: 0 }}>
+                    <img src={localPreview || form.imageUrl} alt="Vista previa del producto"
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  </Box>
+                  <Box style={{ flex: 1 }}>
+                    <Text size="xs" c="dimmed">
+                      {imageFile ? "Vista previa de la nueva imagen" : "Imagen actual del producto"}
+                    </Text>
+                    <Button size="compact-sm" mt="xs" variant="subtle" color="red"
+                      leftSection={<X size={14}/>}
+                      onClick={() => {
+                        selectImage(null);
+                        setForm((previous) => ({ ...previous, imageUrl: "" }));
+                      }}>
+                      Quitar imagen
+                    </Button>
+                  </Box>
+                </Group>
+              )}
+              <TextInput mt="md" label="O utilizar una URL externa (opcional)"
+                type="url" placeholder="https://..."
+                disabled={Boolean(imageFile)}
+                value={form.imageUrl}
+                onChange={(event) => setForm({ ...form, imageUrl: event.currentTarget.value })}/>
+            </Paper>
             <Checkbox color="red" label="Publicar inmediatamente en el menú" checked={form.active} onChange={(event) => setForm({ ...form, active: event.currentTarget.checked })}/>
             {error && <Alert color="red">{error}</Alert>}
             <Group justify="flex-end" mt="sm">
