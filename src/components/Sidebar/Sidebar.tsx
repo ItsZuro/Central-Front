@@ -22,6 +22,7 @@ export default function Sidebar() {
   const [loggingOut, setLoggingOut] = useState(false);
   const user = useAuthStore((state) => state.user);
   const isAdmin = Boolean(user?.roles?.includes("ROLE_ADMIN"));
+  const initials = ((user?.firstName?.[0] || user?.username?.[0] || "A") + (user?.lastName?.[0] || "")).toUpperCase();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -55,7 +56,7 @@ export default function Sidebar() {
           <ShieldCheck size={18} color="white"/>
         </Group>
         <Group mt="md" gap="sm" wrap="nowrap">
-          <Avatar size={42} color="white" variant="white" radius="lg" name={user?.fullName || user?.username || "Admin"}/>
+          <Avatar size={42} color="red" variant="light" radius="lg" style={{ flexShrink: 0, border: "2px solid rgba(255,255,255,.45)" }}>{initials}</Avatar>
           <Box style={{ minWidth: 0 }}>
             <Text c="white" fw={750} size="sm" truncate>{user?.fullName || user?.username || "Administrador"}</Text>
             <Text c="red.1" size="xs">{isAdmin ? "Administrador" : "Gerente"}</Text>
@@ -81,7 +82,11 @@ export default function Sidebar() {
               variant="light"
               fw={active ? 800 : 600}
               onClick={closeSidebar}
-              style={{borderRadius: 12}}
+              styles={{
+                root: { borderRadius: 12, minHeight: 44, padding: "10px 14px" },
+                section: { flexShrink: 0, marginInlineEnd: 11 },
+                label: { fontSize: 14, lineHeight: 1.4 },
+              }}
             />
           );
         })}
