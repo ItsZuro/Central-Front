@@ -3,6 +3,8 @@ import { ShoppingBag, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface OrderSummaryProps {
+  pickupMode?: boolean;
+  isCheckoutReady?: boolean;
   items: CartItem[];
   subtotal: number;
   deliveryFee: number;
@@ -14,6 +16,8 @@ interface OrderSummaryProps {
 }
 
 export default function OrderSummary({
+  pickupMode = false,
+  isCheckoutReady = true,
   items,
   subtotal,
   deliveryFee,
@@ -94,7 +98,7 @@ export default function OrderSummary({
           <span>S/ {(total - subtotal - deliveryFee).toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-sm text-gray-400">
-          <span>Costo de envío</span>
+          <span>{pickupMode ? "Recogida en tienda" : "Costo de envío"}</span>
           <span>S/ {deliveryFee.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-xl font-bold text-white pt-3 border-t border-neutral-700">
@@ -105,7 +109,7 @@ export default function OrderSummary({
         {isUserLoggedIn ? (
           <button
             onClick={onProcessOrder}
-            disabled={isLoading}
+            disabled={isLoading || !isCheckoutReady}
             className="w-full mt-4 bg-red-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-red-900/40 hover:bg-red-700 hover:shadow-red-900/60 transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
           >
             {isLoading ? (
@@ -114,7 +118,7 @@ export default function OrderSummary({
                 <span>Procesando...</span>
               </>
             ) : (
-              "Confirmar Pedido"
+              isCheckoutReady ? "Confirmar Pedido" : "Preparando pedido..."
             )}
           </button>
         ) : (
