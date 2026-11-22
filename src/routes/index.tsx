@@ -4,6 +4,7 @@ import AuthLayout from "@/components/layouts/AuthLayout/AuthLayout";
 import NotFound from "@/components/NotFound";
 import DashboardAdmin from "@/features/admin/dashboard/Dashboard";
 import ProductsAdmin from "@/features/admin/products/Products";
+import CategoriesAdmin from "@/features/admin/categories/Categories";
 import ReportsAdmin from "@/features/admin/reports/Reports";
 import UsersAdmin from "@/features/admin/users/Users";
 import Login from "@/features/auth/login/Login";
@@ -97,6 +98,10 @@ export default function AppRoutes() {
           <Route
             path="/admin/products"
             element={<ProductsAdmin />}
+          />
+          <Route
+            path="/admin/categories"
+            element={<CategoriesAdmin />}
           />
           <Route
             path="/admin/reports"
