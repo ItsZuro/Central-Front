@@ -55,7 +55,7 @@ export function useSignupMutation() {
 
   return useMutation<ApiResponse<number>, AxiosError<ApiError>, SignupRequest>({
     mutationFn: (data) => authService.signup(data),
-    onSuccess: (data) => {
+    onSuccess: () => {
       // El backend actual no envía correos de verificación: el alta deja la cuenta habilitada.\n      toast.success("Cuenta de cliente registrada. Ya puedes iniciar sesión.");
 
       navigate("/auth/login");
