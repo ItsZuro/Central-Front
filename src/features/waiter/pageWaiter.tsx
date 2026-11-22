@@ -1,3 +1,4 @@
+import NewDineInOrder from "./NewDineInOrder";
 import { logoutFromServer } from "@/core/services/auth/logout";
 import { orderService } from "@/core/services/order/order.service";
 import { api } from "@/core/api/api";
@@ -254,7 +255,10 @@ export default function WaiterApp() {
 
         {section === "orders" && (
           <section aria-label="Listado de pedidos">
-            <h2 className="mb-5 text-xl font-bold">Pedidos del restaurante</h2>
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-bold">Pedidos del restaurante</h2>
+              <NewDineInOrder onCreated={() => { reload(); setSection("orders"); }} />
+            </div>
             <div className="mb-5 flex flex-wrap gap-3">
               <label className="flex min-w-[210px] flex-1 items-center gap-2 rounded-xl border border-white/15 bg-[#242428] px-3">
                 <Search size={17} className="shrink-0 text-zinc-400" />
