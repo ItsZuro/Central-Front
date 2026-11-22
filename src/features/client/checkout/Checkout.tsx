@@ -9,7 +9,7 @@ import { ChevronLeft, LockKeyhole, MapPin, Store } from "lucide-react";
 import { Alert, Badge, Box, Group, Paper, SegmentedControl, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import type { ApiResponse } from "@/core/types/base/api-response";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import DeliveryForm from "./components/DeliveryForm";
@@ -87,14 +87,15 @@ export default function CheckoutPage() {
       };
     },
     staleTime: 60_000,
-    enabled: isClient,
   });
   const pickupStore = checkoutConfig.data?.stores.find((store) =>
     store.name.toLocaleLowerCase("es-PE").includes("central") && store.name.toLocaleLowerCase("es-PE").includes("ica")
   ) || checkoutConfig.data?.stores[0];
-  const canQuoteDelivery = checkoutConfig.data?.stores.some(
-    (store) => Number.isFinite(store.latitude) && Number.isFinite(store.longitude)
-  ) || false;
+  const deliveryStore = [...(checkoutConfig.data?.stores ?? [])]
+    .filter((store) => Number.isFinite(store.latitude) && Number.isFinite(store.longitude))
+    .sort((a, b) => a.id - b.id)[0];
+  const canQuoteDelivery = Boolean(deliveryStore &&
+    checkoutConfig.data?.types.some((type) => type.code === "DELIVERY"));
   const pickupConfigured = Boolean(
     pickupStore &&
     checkoutConfig.data?.types.some((type) => type.code === "TAKE_AWAY") &&
@@ -109,9 +110,28 @@ export default function CheckoutPage() {
     lng: number;
   } | null>(draft?.coordinates || null);
   const [references, setReferences] = useState(draft?.references || "");
-  const [deliveryQuote, setDeliveryQuote] = useState<{ distanceKm: number; durationMinutes: number } | null>(null);
-  const [isCheckingDelivery, setIsCheckingDelivery] = useState(false);
-  const deliveryQuoteSequence = useRef(0);
+  // La dirección puede seleccionarse como invitado. Google Maps se consulta
+  // exclusivamente desde Spring Boot, después del login.
+  const deliveryQuoteQuery = useQuery({
+    queryKey: ["delivery-quote", user?.id ?? null, coordinates?.lat ?? null, coordinates?.lng ?? null],
+    queryFn: async () => {
+      if (!coordinates) throw new Error("Selecciona una ubicación.");
+      const response = await api.get<ApiResponse<{ distanceKm: number; durationMinutes: number }>>(
+        "/orders/delivery/quote",
+        { params: { latitude: coordinates.lat, longitude: coordinates.lng } },
+      );
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.message || "No se pudo comprobar la cobertura.");
+      }
+      return response.data.data;
+    },
+    enabled: isClient && orderMode === "delivery" && Boolean(coordinates) && canQuoteDelivery,
+    retry: false,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+  const deliveryQuote = deliveryQuoteQuery.data ?? null;
+  const isCheckingDelivery = deliveryQuoteQuery.isFetching;
 
   // Datos de Contacto e Identidad
   const [phone, setPhone] = useState(draft?.phone || "");
@@ -144,29 +164,9 @@ export default function CheckoutPage() {
   };
 
   // --- HANDLERS DEL MAPA ---
-  const handleLocationSelect = (
-    selectedAddress: string,
-    lat: number,
-    lng: number
-  ) => {
+  const handleLocationSelect = (selectedAddress: string, lat: number, lng: number) => {
     setAddress(selectedAddress);
     setCoordinates({ lat, lng });
-    setDeliveryQuote(null);
-    setIsCheckingDelivery(true);
-    const currentRequest = ++deliveryQuoteSequence.current;
-    void api.get<{ data: { distanceKm: number; durationMinutes: number } }>(
-      "/orders/delivery/quote", { params: { latitude: lat, longitude: lng } }
-    ).then((response) => {
-      if (currentRequest === deliveryQuoteSequence.current) {
-        setDeliveryQuote(response.data.data);
-      }
-    }).catch(() => {
-      if (currentRequest === deliveryQuoteSequence.current) {
-        toast.error("Esta ubicación está fuera de cobertura o no se pudo verificar la ruta.");
-      }
-    }).finally(() => {
-      if (currentRequest === deliveryQuoteSequence.current) setIsCheckingDelivery(false);
-    });
   };
 
   const handleConfirmMap = () => {
@@ -174,8 +174,8 @@ export default function CheckoutPage() {
       toast.error("Por favor selecciona una ubicación en el mapa");
       return;
     }
-    if (isCheckingDelivery || !deliveryQuote) {
-      toast.error("Espera a que se verifique la cobertura de delivery.");
+    if (isClient && (isCheckingDelivery || !deliveryQuote)) {
+      toast.error("La dirección debe estar dentro de la cobertura verificada para confirmar.");
       return;
     }
     setIsMapOpen(false);
@@ -184,8 +184,11 @@ export default function CheckoutPage() {
   // --- PROCESO PRINCIPAL DE ORDEN ---
   const handleProcessOrder = () => {
     if (isLoading) return;
-    if (orderMode === "delivery" && (!address.trim() || !coordinates || !deliveryQuote || isCheckingDelivery)) {
-      return toast.error("Selecciona una dirección con cobertura de delivery verificada.");
+    if (orderMode === "delivery" && (!address.trim() || !coordinates)) {
+      return toast.error("Selecciona tu dirección en el mapa para recibir el pedido.");
+    }
+    if (isClient && orderMode === "delivery" && (!deliveryQuote || isCheckingDelivery)) {
+      return toast.error("No se ha podido verificar la cobertura de tu dirección.");
     }
     if (!phone.trim() || phone.length < 9) {
       return toast.error("Ingresa un teléfono válido de 9 dígitos.");
@@ -560,6 +563,33 @@ export default function CheckoutPage() {
                 styles={{ root: { background: "#322920", border: "1px solid #604c30" }, title: { color: "#ffda9d" }, message: { color: "#ffda9d" } }}
               >
                 Estamos verificando la ruta de entrega.
+              </Alert>
+            )}
+            {orderMode === "delivery" && !isClient && coordinates && (
+              <Alert
+                color="blue"
+                radius="lg"
+                title="Dirección guardada"
+                styles={{
+                  root: { background: "#202933", border: "1px solid #385066" },
+                  title: { color: "#cee1f7" }, message: { color: "#c3d8ee" },
+                }}
+              >
+                Comprobaremos la distancia y la cobertura cuando inicies sesión para confirmar el pedido.
+              </Alert>
+            )}
+            {orderMode === "delivery" && isClient && deliveryQuoteQuery.isError && (
+              <Alert
+                color="red"
+                radius="lg"
+                title="No es posible enviar a esta dirección"
+                styles={{
+                  root: { background: "#362125", border: "1px solid #713b43" },
+                  title: { color: "#ffb9c0" }, message: { color: "#ffc8cd" },
+                }}
+              >
+                La ruta no se pudo verificar o está fuera del área de reparto.
+                Prueba con otra ubicación dentro de la cobertura.
               </Alert>
             )}
             {orderMode === "delivery" && deliveryQuote && (
