@@ -74,6 +74,12 @@ export interface AssignDriverRequest {
   employeeId: number;
 }
 
+export interface DriverOptionResponse {
+  employeeId: number;
+  fullName: string;
+  username: string;
+}
+
 export interface UpdateLocationRequest {
   latitude: number;
   longitude: number;
