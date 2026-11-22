@@ -7,7 +7,7 @@ import type { OrderResponse } from "@/core/types/order/order.model";
 import {
   Alert, Badge, Box, Button, Center, Divider, Grid, Group, Loader, Paper,
   Pagination, ScrollArea, SegmentedControl, Select, SimpleGrid, Stack,
-  Tabs, Text, TextInput, ThemeIcon, Title,
+  Tabs, Text, TextInput, ThemeIcon, Title, UnstyledButton,
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -450,7 +450,7 @@ export default function WaiterApp() {
                       tables.length === 0 ? <Empty Icon={Users} title="Sin mesas registradas" detail="Las mesas configuradas aparecerán aquí."/> :
                         <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
                           {tables.slice(0, 6).map((table) => (
-                            <Paper key={table.id} p="md" radius="lg" className={styles.boardCell}
+                            <UnstyledButton key={table.id} p="md" className={styles.boardCell}
                               onClick={() => setSection("tables")}>
                               <Group justify="space-between" align="flex-start" gap="xs">
                                 <Text fw={750} c="white" size="sm">Mesa {table.alias || table.code || table.id}</Text>
@@ -459,7 +459,7 @@ export default function WaiterApp() {
                                 </Badge>
                               </Group>
                               <Text c={muted} mt="sm" size="xs">{table.capacity} personas</Text>
-                            </Paper>
+                            </UnstyledButton>
                           ))}
                         </SimpleGrid>}
                   </Paper>
@@ -480,7 +480,7 @@ export default function WaiterApp() {
                         {activeRoomOrders.filter((order) =>
                           ["PENDING", "PENDING_CONFIRMATION"].includes(order.statusCode))
                           .slice(0, 2).map((order) => (
-                            <Paper key={"pending-" + order.id} className={styles.actionCard} radius="lg" p="sm"
+                            <UnstyledButton key={"pending-" + order.id} className={styles.actionCard} p="sm"
                               onClick={() => viewOrder(order.id)}>
                               <Group align="flex-start" wrap="nowrap" gap="sm">
                                 <ThemeIcon variant="light" color="yellow"><Clock3 size={17}/></ThemeIcon>
@@ -489,10 +489,10 @@ export default function WaiterApp() {
                                   <Text c={muted} size="xs" mt={4}>Revisa el pedido y coordina el cobro con caja.</Text>
                                 </Box>
                               </Group>
-                            </Paper>
+                            </UnstyledButton>
                           ))}
                         {upcoming.slice(0, 2).map((reservation) => (
-                          <Paper key={"reservation-" + reservation.id} className={styles.actionCard} p="sm" radius="lg"
+                          <UnstyledButton key={"reservation-" + reservation.id} className={styles.actionCard} p="sm"
                             onClick={() => setSection("reservations")}>
                             <Group wrap="nowrap" align="flex-start" gap="sm">
                               <ThemeIcon color="cyan" variant="light"><CalendarDays size={17}/></ThemeIcon>
@@ -503,7 +503,7 @@ export default function WaiterApp() {
                                 </Text>
                               </Box>
                             </Group>
-                          </Paper>
+                          </UnstyledButton>
                         ))}
                         {activeRoomOrders.filter((order) => ["PENDING", "PENDING_CONFIRMATION"].includes(order.statusCode)).length === 0 &&
                           upcoming.length === 0 && (
