@@ -131,19 +131,20 @@ function DeliveryAddressSection({
             </Text>
             <Group mt="sm" gap="sm" align="stretch">
               <Button
-                variant="light"
+                variant="filled"
                 color="red"
+                className={styles.locationPrimaryAction}
                 radius="md"
                 leftSection={<Search size={16} />}
                 onClick={searchAddress}
                 loading={searching}
-                disabled={!isLoaded || address.trim().length < 5}
               >
                 Buscar dirección
               </Button>
               <Button
                 variant="outline"
-                color="gray"
+                color="red"
+                className={styles.locationSecondaryAction}
                 radius="md"
                 leftSection={<Map size={16} />}
                 onClick={() => onOpenMap()}
@@ -177,12 +178,13 @@ function DeliveryAddressSection({
                 </Box>
               </Group>
               <Box mt="md" className={styles.previewFrame}>
-                <StoreMapPreview lat={candidate.lat} lng={candidate.lng} />
+                <StoreMapPreview lat={candidate.lat} lng={candidate.lng} height={280} />
               </Box>
               <Group mt="md" gap="sm">
                 <Button
                   color="red"
                   radius="md"
+                  className={styles.locationPrimaryAction}
                   leftSection={<CheckCircle2 size={16} />}
                   onClick={() => {
                     onSelectLocation(candidate.address, candidate.lat, candidate.lng);
@@ -194,7 +196,8 @@ function DeliveryAddressSection({
                 </Button>
                 <Button
                   variant="outline"
-                  color="gray"
+                  color="red"
+                  className={styles.locationSecondaryAction}
                   radius="md"
                   onClick={() => onOpenMap(candidate)}
                   leftSection={<MapPin size={16} />}
@@ -220,11 +223,12 @@ function DeliveryAddressSection({
                 </Box>
               </Group>
               <Box mt="md" className={styles.previewFrame}>
-                <StoreMapPreview lat={coordinates.lat} lng={coordinates.lng} />
+                <StoreMapPreview lat={coordinates.lat} lng={coordinates.lng} height={280} />
               </Box>
               <Button
-                variant="light"
+                variant="filled"
                 color="red"
+                className={styles.locationPrimaryAction}
                 size="sm"
                 radius="md"
                 mt="sm"
