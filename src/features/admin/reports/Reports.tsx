@@ -49,6 +49,22 @@ type DateRange = { from: string; to: string };
 type AggregatedProduct = { id: number; name: string; quantity: number; amount: number };
 type CategoryTotal = { label: string; units: number };
 
+/** Etiquetas legibles; CARD es el código de Niubiz, no necesariamente la red de tarjeta utilizada. */
+const paymentMethodLabel = (code: string) => {
+  const labels: Record<string, string> = {
+    CARD: "Tarjeta / pago en línea (Niubiz)",
+    CASH: "Efectivo",
+    YAPE: "Yape",
+    PLIN: "Plin",
+    TRANSFER: "Transferencia bancaria",
+    BANK_TRANSFER: "Transferencia bancaria",
+    WALLET: "Billetera digital",
+    ONLINE: "Pago en línea",
+  };
+  const normalized = code.trim().toUpperCase();
+  return labels[normalized] || code.replaceAll("_", " ").toLowerCase().replace(/^./, (letter) => letter.toUpperCase());
+};
+
 const money = (value: number) =>
   "S/ " + Number(value || 0).toLocaleString("es-PE", {
     minimumFractionDigits: 2,
@@ -397,7 +413,7 @@ export default function Reports() {
               <Table.Thead><Table.Tr><Table.Th>Método</Table.Th><Table.Th ta="right">Operaciones</Table.Th><Table.Th ta="right">Importe</Table.Th></Table.Tr></Table.Thead>
               <Table.Tbody>{payments.map((payment) =>
                 <Table.Tr key={payment.paymentMethodName}>
-                  <Table.Td><Text fw={650} size="sm">{payment.paymentMethodName}</Text></Table.Td>
+                  <Table.Td><Text fw={650} size="sm">{paymentMethodLabel(payment.paymentMethodName)}</Text></Table.Td>
                   <Table.Td ta="right">{payment.totalTransactions}</Table.Td>
                   <Table.Td ta="right">{money(Number(payment.totalAmount))}</Table.Td>
                 </Table.Tr>
