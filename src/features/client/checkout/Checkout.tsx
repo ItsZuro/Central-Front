@@ -36,6 +36,7 @@ type PaymentRef = CatalogRef & { provider: string };
 
 type CheckoutDraft = {
   orderMode: OrderMode;
+  // "yape" se mantiene solamente para leer borradores antiguos.
   paymentMethod: "card" | "cash" | "yape";
   address: string;
   coordinates: { lat: number; lng: number } | null;
@@ -63,7 +64,10 @@ export default function CheckoutPage() {
 
   // Elegir recogida permite probar pedidos sin configurar una ruta ficticia.
   const [orderMode, setOrderMode] = useState<OrderMode>(draft?.orderMode || "pickup");
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "cash" | "yape">(draft?.paymentMethod || "cash");
+  // Borradores antiguos con Yape deben entrar a Niubiz, no registrar un pago sin cobrar.
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "cash">(
+    draft?.paymentMethod === "yape" ? "card" : (draft?.paymentMethod || "cash")
+  );
 
   // Identificadores reales del backend: nunca asumir que los IDs coinciden con
   // el orden de inserción en PostgreSQL.
@@ -219,7 +223,7 @@ export default function CheckoutPage() {
     const typeCode = orderMode === "pickup" ? "TAKE_AWAY" : "DELIVERY";
     const statusId = checkoutConfig.data.statuses.find((item) => item.code === "PENDING")?.id;
     const typeId = checkoutConfig.data.types.find((item) => item.code === typeCode)?.id;
-    const payCode = paymentMethod === "cash" ? "CASH" : "YAPE";
+    const payCode = "CASH";
     const paymentId = checkoutConfig.data.methods.find(
       (item) => item.code === payCode && item.provider === "INTERNAL"
     )?.id;
@@ -230,7 +234,7 @@ export default function CheckoutPage() {
       return toast.error("No hay una sucursal configurada para recoger pedidos.");
     }
 
-    // 2. Validación de Niubiz (Si es tarjeta)
+    // 2. Validación de Niubiz (tarjeta, Yape y otros medios habilitados)
     if (paymentMethod === "card") {
       if (scriptError) {
         return toast.error(
@@ -283,7 +287,7 @@ export default function CheckoutPage() {
         longitude: coordinates.lng,
         instructions: items[0]?.notes || "",
       } : undefined,
-      // Si es tarjeta, NO enviamos el pago en la creación (se hace en el flujo de Niubiz después)
+      // Si es pago online, NO enviamos el pago en la creación (lo confirma Niubiz después)
       payments:
         paymentMethod !== "card"
           ? [
