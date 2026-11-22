@@ -1,11 +1,11 @@
 import { useGetFeaturedProductsQuery, useGetProductsQuery } from "@/core/hooks/products/useProduct.hooks";
 import type { ProductResponse } from "@/core/types/products/products.model";
 import {
-  Badge, Box, Button, Card, Container, Divider, Group, Image, Paper,
+  Badge, Box, Button, Card, Container, Group, Image, Paper,
   SimpleGrid, Skeleton, Stack, Text, ThemeIcon, Title,
 } from "@mantine/core";
 import {
-  ArrowDown, ArrowRight, ChefHat, Clock3, Heart, MessageCircleMore,
+  ArrowDown, ArrowRight, ChefHat, Heart, MessageCircleMore,
   ShoppingBag, Sparkles, UtensilsCrossed,
 } from "lucide-react";
 import { useMemo } from "react";
