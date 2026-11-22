@@ -18,6 +18,7 @@ import {
 import { api } from "@/core/api/api";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import type { ApiResponse } from "@/core/types/base/api-response";
+import { useQueryClient } from "@tanstack/react-query";
 
 type Status = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
 type AvailableTable = { id: number; name: string; capacity: number; availableTimes: string[] };
@@ -93,6 +94,7 @@ function getError(e: unknown) {
 
 export default function Reservations() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const location = useLocation();
   const draft = (location.state as { reservationDraft?: Partial<ReservationDraft> } | null)?.reservationDraft;
   const restoreRef = useRef(draft);
@@ -240,6 +242,12 @@ export default function Reservations() {
         numberOfPeople: guests,
       });
       setCreated(response.data);
+      // Crear una reserva debe actualizar inmediatamente el historial privado
+      // y el contador de Mi perfil, aunque sus queries sigan dentro de staleTime.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["reservations", "me"] }),
+        queryClient.invalidateQueries({ queryKey: ["profile", "my-reservations"] }),
+      ]);
       setReload((value) => value + 1);
     } catch (cause) {
       setError(getError(cause));
@@ -255,6 +263,10 @@ export default function Reservations() {
     try {
       await api.patch("reservations/me/" + id + "/cancel");
       setCancelTarget(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["reservations", "me"] }),
+        queryClient.invalidateQueries({ queryKey: ["profile", "my-reservations"] }),
+      ]);
       setReload((value) => value + 1);
     } catch (cause) {
       setError(getError(cause));
