@@ -9,7 +9,7 @@ import {
 } from "@mantine/core";
 import {
   ArrowRight, CalendarDays, Check, CheckCircle2, ChevronRight, CircleAlert,
-  Clock3, ClipboardList, LogIn, MapPin, Phone, RefreshCw,
+  Clock3, ClipboardList, LogIn, Phone, RefreshCw,
   ShieldCheck, Sparkles, Users, UtensilsCrossed, X,
 } from "lucide-react";
 import { api } from "@/core/api/api";
