@@ -33,6 +33,15 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      - name: Verificar variable de Google Maps para CloudFront
+        env:
+          VITE_GOOGLE_MAPS_API_KEY: ${{ vars.VITE_GOOGLE_MAPS_API_KEY }}
+        run: |
+          if [ -z "$VITE_GOOGLE_MAPS_API_KEY" ]; then
+            echo "::error::Configura VITE_GOOGLE_MAPS_API_KEY en Central-Front / Settings / Secrets and variables / Actions / Variables"
+            exit 1
+          fi
+
       - name: Compilar frontend
         env:
           VITE_API_BASE_URL: https://d3gjtcfgv1ut3w.cloudfront.net/api/v1/
