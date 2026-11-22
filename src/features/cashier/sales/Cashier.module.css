@@ -84,3 +84,21 @@
 .modalContent :global(.mantine-Textarea-input) {
   color: #f7f2f6;
 }
+
+
+/* Avisos informativos del panel oscuro (fuera de los modales Mantine). */
+.infoAlert {
+  background: #17273c !important;
+  border: 1px solid #345675 !important;
+  color: #ebf4ff !important;
+  --mantine-color-text: #ebf4ff;
+  --mantine-color-dimmed: #c4d8f0;
+}
+.infoAlert :global(.mantine-Alert-icon) {
+  color: #83c5ff !important;
+}
+.infoAlert :global(.mantine-Alert-title),
+.infoAlert :global(.mantine-Alert-message),
+.infoAlert :global(.mantine-Alert-body) {
+  color: #ebf4ff !important;
+}
