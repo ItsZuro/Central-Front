@@ -1,6 +1,6 @@
 export const roleDefaultRoutes: Record<string, string> = {
   ROLE_ADMIN: "/admin/dashboard",
-  ROLE_MANAGER: "/cashier/sales",
+  ROLE_MANAGER: "/admin/dashboard",
   ROLE_CLIENT: "/",
   ROLE_WAITER: "/waiter",
   ROLE_CHEF: "/chef/orders",
