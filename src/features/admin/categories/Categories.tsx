@@ -1,5 +1,6 @@
 import { api } from "@/core/api/api";
 import axios from "axios";
+import { toast } from "react-toastify";
 import { FolderPlus, Pencil, Tags, Trash2, UtensilsCrossed, X } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
@@ -33,6 +34,7 @@ export default function Categories() {
       setCategories(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (err) {
       setError(errorMessage(err));
+      toast.error(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -62,14 +64,17 @@ export default function Categories() {
       if (editor === "new") {
         await api.post("categories", { name: value });
         setNotice("Categoría creada correctamente.");
+      toast.success("Categoría creada correctamente.");
       } else if (editor) {
         await api.put("categories/" + editor.id, { name: value });
         setNotice("Categoría actualizada correctamente.");
+      toast.success("Categoría actualizada correctamente.");
       }
       setEditor(null);
       await load();
     } catch (err) {
       setError(errorMessage(err));
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -83,9 +88,11 @@ export default function Categories() {
     try {
       await api.delete("categories/" + category.id);
       setNotice("Categoría eliminada.");
+      toast.success("Categoría eliminada.");
       await load();
     } catch (err) {
       setError(errorMessage(err));
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }
