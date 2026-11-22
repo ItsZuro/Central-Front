@@ -1,5 +1,6 @@
 import { api } from "@/core/api/api";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
+import { Alert, Badge, Box, Button, Center, Divider, Group, Paper, SimpleGrid, Stack, Table, Text, ThemeIcon, Title } from "@mantine/core";
 import { Activity, AlertTriangle, ArrowRight, CalendarDays, ChartNoAxesCombined, CircleCheck, ClipboardList, Coffee, PackageOpen, Plus, RefreshCw, ShoppingBag, Tags, TrendingUp, UserRound, UsersRound, UtensilsCrossed } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -128,117 +129,169 @@ export default function Dashboard() {
   ];
 
   return (
-    <section className="mx-auto max-w-7xl space-y-7">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-600">Restaurant Central / Administración</p>
-          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">Resumen operativo</h1>
-          <p className="mt-2 text-sm text-slate-500">Bienvenido, {user?.firstName || user?.username || "administrador"}. Consulta el estado real de tu restaurante.</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => setRefresh((n) => n + 1)} disabled={pending}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-300 disabled:opacity-50">
-            <RefreshCw size={16} className={pending ? "animate-spin" : ""} /> Actualizar
-          </button>
-          <Link to="/admin/products" className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-700"><Plus size={17} /> Nuevo plato</Link>
-        </div>
-      </header>
+    <Stack maw={1500} mx="auto" gap="xl">
+      <Group justify="space-between" align="flex-end" wrap="wrap">
+        <Box>
+          <Text c="red.7" fw={800} size="xs" tt="uppercase" lts={1.5}>Restaurant Central / Administración</Text>
+          <Title order={1} mt={7} fw={850}>Resumen operativo</Title>
+          <Text c="dimmed" size="sm" mt="xs">
+            Bienvenido, {user?.firstName || user?.username || "administrador"}. Supervisa las operaciones y la actividad de tu restaurante.
+          </Text>
+        </Box>
+        <Group gap="sm">
+          <Button variant="default" leftSection={<RefreshCw size={17} />} loading={pending} onClick={() => setRefresh((x) => x + 1)}>Actualizar</Button>
+          <Button component={Link} to="/admin/products" leftSection={<Plus size={18} />}>Nuevo plato</Button>
+        </Group>
+      </Group>
 
-      {failed.length > 0 && <div role="alert" className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900"><AlertTriangle size={19} className="mt-0.5 shrink-0"/> No fue posible consultar {failed.join(", ")}. Los datos no disponibles se muestran con «—». Puedes intentar actualizar.</div>}
+      {failed.length > 0 && (
+        <Alert color="yellow" title="Algunos datos no están disponibles" icon={<AlertTriangle size={19} />}>
+          No se pudieron consultar {failed.join(", ")}. Los valores sin información se indican con «—».
+        </Alert>
+      )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {cards.map((card) => <Link key={card.label} to={card.to} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-red-200 hover:shadow-md">
-          <div className="flex items-start justify-between">
-            <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${card.iconBg} ${card.iconColor}`}><card.icon size={22}/></span>
-            <ArrowRight size={16} className="text-slate-300 group-hover:text-red-500"/>
-          </div>
-          <p className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-500">{card.label}</p>
-          <p className="mt-2 text-3xl font-extrabold text-slate-900">{pending ? "…" : card.value}</p>
-          <p className="mt-2 text-xs text-slate-400">{card.detail}</p>
-        </Link>)}
-      </div>
+      <SimpleGrid cols={{ base: 1, xs: 2, xl: 4 }} spacing="lg">
+        {cards.map((card, index) => (
+          <Link key={card.label} to={card.to} style={{ textDecoration: "none", color: "inherit" }}>
+            <Paper withBorder shadow="xs" p="lg" h="100%" radius="lg" style={{ transition: "box-shadow .15s ease" }}>
+              <Group justify="space-between" align="flex-start">
+                <ThemeIcon size={46} radius="md" variant="light" color={["green", "blue", "red", "orange"][index]}>
+                  <card.icon size={23} />
+                </ThemeIcon>
+                <ArrowRight size={17} color="#a0aec0"/>
+              </Group>
+              <Text mt="lg" size="xs" fw={800} c="dimmed" tt="uppercase" lts={0.7}>{card.label}</Text>
+              <Title order={2} fw={850} mt="xs">{pending ? "…" : card.value}</Title>
+              <Text mt="xs" c="dimmed" size="xs">{card.detail}</Text>
+            </Paper>
+          </Link>
+        ))}
+      </SimpleGrid>
 
-      <div className="grid gap-5 xl:grid-cols-[1.65fr_1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><ChartNoAxesCombined size={21} className="text-red-600"/> Evolución de ventas</h2>
-              <p className="mt-1 text-xs text-slate-500">Últimos siete días · Datos reales de pedidos</p>
-            </div>
-            <div className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700"><CalendarDays size={14} className="mr-1 inline"/> 7 días</div>
-          </div>
-
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
+        <Paper withBorder shadow="xs" p="xl">
+          <Group justify="space-between">
+            <Box>
+              <Group gap="sm"><ThemeIcon variant="light" color="red" size="lg"><ChartNoAxesCombined size={20}/></ThemeIcon><Title order={3} size="lg">Evolución de ventas</Title></Group>
+              <Text c="dimmed" mt="xs" size="xs">Ingresos registrados durante los últimos siete días</Text>
+            </Box>
+            <Badge color="red" variant="light" leftSection={<CalendarDays size={13}/>}>7 días</Badge>
+          </Group>
           {state.summary && hasSales ? (
-            <div className="mt-6 h-64 w-full">
+            <Box h={275} mt="lg">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 8, right: 15, left: -12, bottom: 0 }}>
-                  <defs><linearGradient id="central-sales-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#dc2626" stopOpacity={0.22}/><stop offset="95%" stopColor="#dc2626" stopOpacity={0}/></linearGradient></defs>
-                  <CartesianGrid vertical={false} stroke="#eef0f4" strokeDasharray="3 3"/>
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={50} />
+                <AreaChart data={chartData} margin={{ top: 12, right: 16, left: -8, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="central-sales-mantine" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#dc2626" stopOpacity={0.22}/>
+                      <stop offset="95%" stopColor="#dc2626" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="#edf0f4" strokeDasharray="4 4"/>
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={55}/>
                   <Tooltip formatter={(value) => money(Number(value))} labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.date || "")}/>
-                  <Area type="monotone" dataKey="sales" name="Ventas" stroke="#dc2626" strokeWidth={3} fill="url(#central-sales-gradient)" activeDot={{ r: 5 }} />
+                  <Area type="monotone" dataKey="sales" name="Ventas" stroke="#dc2626" strokeWidth={3} fill="url(#central-sales-mantine)" activeDot={{r:5}}/>
                 </AreaChart>
               </ResponsiveContainer>
-            </div>
+            </Box>
           ) : (
-            <div className="mt-5 flex h-64 flex-col items-center justify-center rounded-xl bg-slate-50 text-center"><Activity size={31} className="text-slate-300"/><p className="mt-3 font-semibold text-slate-600">{pending ? "Cargando ventas…" : !state.summary ? "Reportes no disponibles" : "Aún no se registran ventas"}</p><p className="mt-1 text-xs text-slate-400">El gráfico se completará con los pedidos reales.</p></div>
+            <Stack bg="gray.0" h={275} mt="lg" align="center" justify="center" gap="xs">
+              <ThemeIcon variant="light" color="gray" size={56} radius="xl"><Activity size={26}/></ThemeIcon>
+              <Text fw={650}>{pending ? "Cargando ventas…" : state.summary ? "Aún no hay ventas" : "No se pudieron consultar las ventas"}</Text>
+              <Text c="dimmed" size="xs" ta="center">Este gráfico mostrará únicamente pedidos reales.</Text>
+            </Stack>
           )}
+          <Divider my="lg"/>
+          <SimpleGrid cols={2}>
+            <Box>
+              <Text size="xs" c="dimmed">Ventas acumuladas</Text>
+              <Title order={3} mt={5}>{state.summary ? money(state.summary.totalSales) : "—"}</Title>
+            </Box>
+            <Box>
+              <Text size="xs" c="dimmed">Total de pedidos</Text>
+              <Title order={3} mt={5}>{state.summary ? state.summary.totalOrders : "—"}</Title>
+            </Box>
+          </SimpleGrid>
+        </Paper>
 
-          <div className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-5">
-            <div><p className="text-xs text-slate-500">Ventas acumuladas</p><p className="mt-1 text-lg font-extrabold text-slate-900">{state.summary ? money(state.summary.totalSales) : "—"}</p></div>
-            <div><p className="text-xs text-slate-500">Total de pedidos</p><p className="mt-1 text-lg font-extrabold text-slate-900">{state.summary ? state.summary.totalOrders : "—"}</p></div>
-          </div>
-        </div>
+        <Paper withBorder shadow="xs" p="xl">
+          <Group gap="sm"><ThemeIcon variant="light" color="red" size="lg"><ClipboardList size={20}/></ThemeIcon><Box><Title order={3} size="lg">Acciones rápidas</Title><Text size="xs" c="dimmed" mt={3}>Herramientas más utilizadas</Text></Box></Group>
+          <Stack mt="xl" gap="sm">
+            {tools.map((item) => (
+              <Paper key={item.to} component={Link} to={item.to} withBorder p="md" radius="md" style={{ textDecoration: "none", color: "inherit" }}>
+                <Group wrap="nowrap">
+                  <ThemeIcon variant="light" color="red" radius="md" size={43}><item.icon size={20}/></ThemeIcon>
+                  <Box style={{flex:1}}>
+                    <Text fw={750} size="sm">{item.label}</Text>
+                    <Text size="xs" c="dimmed" mt={3}>{item.help}</Text>
+                  </Box>
+                  <ArrowRight size={17} color="#94a3b8"/>
+                </Group>
+              </Paper>
+            ))}
+          </Stack>
+        </Paper>
+      </SimpleGrid>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div><h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><ClipboardList size={21} className="text-red-600"/> Acciones rápidas</h2><p className="mt-1 text-xs text-slate-500">Herramientas de administración</p></div>
-          <div className="mt-6 space-y-3">
-            {tools.map((action) => <Link key={action.label} to={action.to} className="group flex items-center gap-4 rounded-xl border border-slate-100 p-4 transition hover:border-red-100 hover:bg-red-50/40">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600 group-hover:bg-red-50 group-hover:text-red-700"><action.icon size={20}/></span>
-              <span className="min-w-0 flex-1"><span className="block text-sm font-bold text-slate-900">{action.label}</span><span className="mt-1 block text-xs text-slate-500">{action.help}</span></span>
-              <ArrowRight size={17} className="text-slate-300 group-hover:text-red-500"/>
-            </Link>)}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><Coffee size={21} className="text-red-600"/> Platos más vendidos</h2><p className="mt-1 text-xs text-slate-500">Ordenados por unidades vendidas</p></div><Link className="text-xs font-bold text-red-700 hover:underline" to="/admin/reports">Ver reportes</Link></div>
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
+        <Paper withBorder shadow="xs" p="xl">
+          <Group justify="space-between">
+            <Group gap="sm"><ThemeIcon color="red" variant="light" size="lg"><Coffee size={19}/></ThemeIcon><Title order={3} size="lg">Platos más vendidos</Title></Group>
+            <Button component={Link} to="/admin/reports" size="xs" variant="subtle" color="red">Ver reportes</Button>
+          </Group>
+          <Text mt="xs" c="dimmed" size="xs">Ordenados por número de unidades vendidas</Text>
           {state.summary?.topProducts?.length ? (
-            <div className="mt-5 divide-y divide-slate-100">
-              {state.summary.topProducts.slice(0,5).map((item, index) => <div key={item.productId} className="flex items-center gap-3 py-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-xs font-black text-red-700">{index + 1}</span>
-                <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-900">{item.productName}</p><p className="text-xs text-slate-500">{item.totalQuantitySold} unidades</p></div>
-                <strong className="text-sm text-slate-900">{money(item.totalRevenue)}</strong>
-              </div>)}
-            </div>
+            <Table mt="lg" verticalSpacing="md" highlightOnHover>
+              <Table.Thead><Table.Tr><Table.Th>Producto</Table.Th><Table.Th ta="right">Unidades</Table.Th><Table.Th ta="right">Importe</Table.Th></Table.Tr></Table.Thead>
+              <Table.Tbody>{state.summary.topProducts.slice(0,5).map((product, idx) =>
+                <Table.Tr key={product.productId}>
+                  <Table.Td><Group gap="sm" wrap="nowrap"><Badge variant="light" color="red" size="lg">{idx+1}</Badge><Text size="sm" fw={650}>{product.productName}</Text></Group></Table.Td>
+                  <Table.Td ta="right"><Text size="sm">{product.totalQuantitySold}</Text></Table.Td>
+                  <Table.Td ta="right"><Text size="sm" fw={700}>{money(product.totalRevenue)}</Text></Table.Td>
+                </Table.Tr>
+              )}</Table.Tbody>
+            </Table>
           ) : (
-            <div className="mt-5 flex flex-col items-center rounded-xl bg-slate-50 px-5 py-12 text-center"><PackageOpen size={29} className="text-slate-300"/><p className="mt-3 text-sm font-semibold text-slate-600">Sin productos vendidos todavía</p><p className="mt-2 text-xs text-slate-400">Aparecerán aquí después de los primeros pedidos.</p></div>
+            <Center h={190}>
+              <Stack gap="xs" align="center"><ThemeIcon color="gray" variant="light" size="xl"><PackageOpen size={24}/></ThemeIcon><Text fw={650} size="sm">Sin productos vendidos todavía</Text><Text c="dimmed" size="xs">Aparecerán después de los primeros pedidos.</Text></Stack>
+            </Center>
           )}
-        </div>
+        </Paper>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><AlertTriangle size={21} className="text-amber-600"/> Estado de inventario</h2><p className="mt-1 text-xs text-slate-500">Ingredientes que requieren reposición</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{state.inventory?.length ?? "—"} registrados</span></div>
+        <Paper withBorder shadow="xs" p="xl">
+          <Group justify="space-between">
+            <Group gap="sm"><ThemeIcon variant="light" color="orange" size="lg"><AlertTriangle size={19}/></ThemeIcon><Title order={3} size="lg">Inventario</Title></Group>
+            <Badge color="gray" variant="light">{state.inventory?.length ?? "—"} ingredientes</Badge>
+          </Group>
+          <Text mt="xs" c="dimmed" size="xs">Alertas de reposición de ingredientes</Text>
           {lowStock.length ? (
-            <div className="mt-5 divide-y divide-slate-100">
-              {lowStock.slice(0,5).map((item) => <div key={item.ingredientId} className="flex items-center gap-4 py-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-700"><AlertTriangle size={17}/></span>
-                <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-900">{item.ingredientName}</p><p className="mt-1 text-xs text-slate-500">Stock: {item.currentStock} · Mínimo: {item.minimumStock}</p></div>
-                <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">{item.status}</span>
-              </div>)}
-            </div>
+            <Table mt="lg" verticalSpacing="md" highlightOnHover>
+              <Table.Thead><Table.Tr><Table.Th>Ingrediente</Table.Th><Table.Th>Estado</Table.Th><Table.Th ta="right">Stock / Mínimo</Table.Th></Table.Tr></Table.Thead>
+              <Table.Tbody>{lowStock.slice(0,5).map((item) =>
+                <Table.Tr key={item.ingredientId}>
+                  <Table.Td><Text size="sm" fw={700}>{item.ingredientName}</Text></Table.Td>
+                  <Table.Td><Badge color="orange" variant="light">{item.status}</Badge></Table.Td>
+                  <Table.Td ta="right"><Text size="sm">{item.currentStock} / {item.minimumStock}</Text></Table.Td>
+                </Table.Tr>
+              )}</Table.Tbody>
+            </Table>
           ) : (
-            <div className="mt-5 flex flex-col items-center rounded-xl bg-slate-50 px-5 py-12 text-center"><CircleCheck size={30} className="text-emerald-500"/><p className="mt-3 text-sm font-semibold text-slate-700">{state.inventory ? "No hay alertas de inventario" : "Inventario no disponible"}</p><p className="mt-2 text-xs text-slate-400">{state.inventory ? "Las existencias están por encima del mínimo configurado." : "Consulta de inventario pendiente."}</p></div>
+            <Center h={190}>
+              <Stack align="center" gap="xs"><ThemeIcon color={state.inventory ? "green" : "gray"} variant="light" size="xl"><CircleCheck size={25}/></ThemeIcon><Text fw={650} size="sm">{state.inventory ? "Sin alertas de inventario" : "Inventario no disponible"}</Text><Text c="dimmed" size="xs">{state.inventory ? "Todas las existencias superan su mínimo." : "No se pudo recuperar la información."}</Text></Stack>
+            </Center>
           )}
-        </div>
-      </div>
+        </Paper>
+      </SimpleGrid>
 
-      <footer className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs text-slate-500">
-        <p><CircleCheck size={15} className="mr-2 inline text-emerald-500"/> Panel conectado a Restaurant Central · AWS</p>
-        <p>{state.users == null ? "Usuarios: —" : `Usuarios: ${state.users}`} · {state.categories == null ? "Categorías: —" : `Categorías: ${state.categories}`}</p>
-      </footer>
-    </section>
+      <Paper withBorder p="sm" radius="lg">
+        <Group justify="space-between" px="sm" gap="xs">
+          <Group gap="xs"><CircleCheck size={16} color="green"/><Text size="xs" c="dimmed">Panel conectado a Restaurant Central · AWS</Text></Group>
+          <Text size="xs" c="dimmed">
+            {isAdmin ? "Usuarios: " + (state.users ?? "—") + " · " : ""}Categorías: {state.categories ?? "—"}
+          </Text>
+        </Group>
+      </Paper>
+    </Stack>
   );
 }
