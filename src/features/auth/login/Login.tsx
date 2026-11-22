@@ -1,3 +1,5 @@
+import AuthBackLink from "@/features/auth/components/AuthBackLink";
+import { Link } from "react-router-dom";
 import { useLoginMutation } from "@/core/hooks/auth/useAuth.hooks";
 import type { LoginSchema } from "@/core/schemas/auth/login.schema";
 import { loginSchema } from "@/core/schemas/auth/login.schema";
@@ -24,6 +26,9 @@ function Login() {
   return (
     <div className="w-full min-h-screen grid place-items-center bg-neutral-900 text-white p-4">
       <div className="w-full max-w-md bg-neutral-800 rounded-2xl shadow-2xl p-8 border border-neutral-700">
+        <div className="mb-5 -ml-2 flex justify-start">
+          <AuthBackLink />
+        </div>
         <div className="flex justify-center mb-6">
           <div className="h-14 w-14 bg-red-600 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-lg shadow-red-900/50">
             🍴
@@ -130,12 +135,12 @@ function Login() {
 
         <div className="mt-8 text-center text-sm text-gray-400">
           ¿No tienes cuenta?{" "}
-          <a
-            href="/auth/signup"
+          <Link
+            to="/auth/signup"
             className="text-red-500 font-bold hover:text-red-400 transition-colors hover:underline"
           >
             Regístrate aquí
-          </a>
+          </Link>
         </div>
       </div>
     </div>
