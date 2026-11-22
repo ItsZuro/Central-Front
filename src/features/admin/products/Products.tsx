@@ -122,7 +122,6 @@ export default function Products() {
     setSaving(true);
     setError("");
     try {
-      const original = typeof editingId === "number" ? products.find((p) => p.id === editingId) : undefined;
       const payload = {
         name: form.name.trim(),
         description: form.description.trim(),
@@ -132,10 +131,10 @@ export default function Products() {
         preparationTimeMinutes: Number(form.preparationTimeMinutes),
         active: Boolean(form.active),
         isCombo: false,
-        // Conservar las relaciones existentes del producto al actualizar sus datos básicos.
-        ingredients: original?.ingredients?.map((i) => ({ ingredientId: i.ingredientId, quantity: i.quantity })) ?? [],
-        comboItems: [],
-        extras: original?.extras?.map((e) => ({ name: e.name, price: e.price })) ?? [],
+        // El backend conserva ingredientes y extras cuando se omiten en ediciones básicas.
+        ingredients: editingId === "new" ? [] : undefined,
+        comboItems: editingId === "new" ? [] : undefined,
+        extras: editingId === "new" ? [] : undefined,
       };
       if (editingId === "new") {
         await api.post("products", payload);
