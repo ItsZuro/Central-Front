@@ -1,5 +1,5 @@
 import { api } from "@/core/api/api";
-import { ActionIcon, Alert, Badge, Box, Button, Center, Checkbox, Divider, Group, Loader, Modal, NumberInput, Paper, ScrollArea, Select, SimpleGrid, Stack, Table, Text, Textarea, TextInput, ThemeIcon, Title, Tooltip } from "@mantine/core";
+import { ActionIcon, Alert, Badge, Box, Button, Center, Checkbox, Divider, Group, Loader, Modal, NumberInput, Paper, Select, SimpleGrid, Stack, Table, Text, Textarea, TextInput, ThemeIcon, Title, Tooltip } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import axios from "axios";
 import { AlertCircle, CheckCircle2, CircleOff, Clock3, ImageOff, Pencil, Plus, Search, Tags, Trash2, UtensilsCrossed } from "lucide-react";
