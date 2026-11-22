@@ -121,3 +121,40 @@
 @media (max-width: 600px) {
   .locationCard { padding: 14px; }
 }
+
+/* Acciones de ubicación: contraste consistente con el tema oscuro de Central. */
+.locationPrimaryAction {
+  background: #d63843 !important;
+  border: 1px solid #ed5360 !important;
+  color: #fff !important;
+  font-weight: 750 !important;
+  min-height: 43px;
+  transition: background-color .18s ease, border-color .18s ease;
+}
+.locationPrimaryAction:hover:not(:disabled):not([data-disabled]) {
+  background: #ec4450 !important;
+  border-color: #fa707a !important;
+}
+.locationSecondaryAction {
+  background: #32252d !important;
+  border: 1px solid #925663 !important;
+  color: #fff0f2 !important;
+  font-weight: 750 !important;
+  min-height: 43px;
+  transition: background-color .18s ease, border-color .18s ease;
+}
+.locationSecondaryAction:hover:not(:disabled):not([data-disabled]) {
+  background: #49303b !important;
+  border-color: #d06c78 !important;
+}
+.locationPrimaryAction:focus-visible, .locationSecondaryAction:focus-visible {
+  outline: 2px solid #ffabb1;
+  outline-offset: 2px;
+}
+.locationPrimaryAction:disabled, .locationPrimaryAction[data-disabled],
+.locationSecondaryAction:disabled, .locationSecondaryAction[data-disabled] {
+  opacity: 1 !important;
+  background: #392c31 !important;
+  color: #cbbdc2 !important;
+  border-color: #58464e !important;
+}
