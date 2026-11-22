@@ -1,10 +1,11 @@
 import { useCancelOrderMutation, useGetMyOrdersQuery } from "@/core/hooks/order/useOrder.hook";
 import type { OrderResponse } from "@/core/types/order/order.model";
-import { Button, Group, Modal, Select, Stack, Text } from "@mantine/core";
+import { Button, Group, Modal, Pagination, Select, Stack, Text } from "@mantine/core";
 import axios from "axios";
 import { useState } from "react";
 import { toast } from "react-toastify";
 import OrderDetailModal from "./OrderDetailModal";
+import orderStyles from "./OrderList.module.css";
 import {
   Bike,
   Check,
@@ -230,6 +231,8 @@ export default function PurchaseHistory() {
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [cancelTarget, setCancelTarget] = useState<OrderResponse | null>(null);
   const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const pageSize = 5;
   const orders = [...(ordersData?.data || [])].sort((a, b) =>
     new Date(b.date).getTime() - new Date(a.date).getTime());
   const filteredOrders = orders.filter((order) => {
@@ -238,6 +241,12 @@ export default function PurchaseHistory() {
     if (filter === "cancelled") return ["CANCELLED", "FAILED"].includes(order.statusCode);
     return true;
   });
+  // La API de pedidos devuelve todos los registros del cliente; por ahora
+  // paginamos en el frontend, sin afectar el orden ni el estado del servidor.
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const visibleOrders = filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
 
   const confirmCancellation = async () => {
     if (!cancelTarget || cancelMutation.isPending) return;
@@ -316,7 +325,10 @@ export default function PurchaseHistory() {
             label="Filtrar pedidos"
             aria-label="Filtrar pedidos"
             value={filter}
-            onChange={(value) => setFilter(value || "all")}
+            onChange={(value) => {
+              setFilter(value || "all");
+              setPage(1);
+            }
             data={[
               { value: "all", label: "Todos" },
               { value: "active", label: "En curso" },
@@ -326,9 +338,13 @@ export default function PurchaseHistory() {
             allowDeselect={false}
             w={190}
             comboboxProps={{ withinPortal: true }}
-            styles={{ input: { background: "#242226", color: "#fff", borderColor: "#5b4850" },
-              dropdown: { background: "#242226", color: "#fff", borderColor: "#5b4850" },
-              option: { color: "#fff" }, label: { color: "#cfc4cc" } }}
+            classNames={{
+              input: orderStyles.filterInput,
+              dropdown: orderStyles.filterDropdown,
+              option: orderStyles.filterOption,
+              label: orderStyles.filterLabel,
+              section: orderStyles.filterSection,
+            }}
           />
         </Group>
         {filteredOrders.length === 0 && (
@@ -336,7 +352,7 @@ export default function PurchaseHistory() {
         )}
 
         <div className="grid gap-8">
-          {filteredOrders.map((order) => {
+          {visibleOrders.map((order) => {
             // Helpers para obtener configuración visual segura
             const statusInfo = STATUS_CONFIG[order.statusCode] || {
               label: order.statusName,
@@ -525,6 +541,25 @@ export default function PurchaseHistory() {
             );
           })}
         </div>
+        {filteredOrders.length > 0 && (
+          <Stack gap="sm" align="center" mt="xl">
+            <Text size="xs" c="#ada0a9">
+              Mostrando {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredOrders.length)} de {filteredOrders.length} pedidos
+            </Text>
+            {totalPages > 1 && (
+              <Pagination
+                total={totalPages}
+                value={currentPage}
+                onChange={setPage}
+                color="red"
+                radius="md"
+                withEdges
+                classNames={{ control: orderStyles.pageControl, dots: orderStyles.pageDots }}
+                aria-label="Páginas de pedidos"
+              />
+            )}
+          </Stack>
+        )}
       </div>
 
       <OrderDetailModal
