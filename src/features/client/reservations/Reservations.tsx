@@ -374,6 +374,25 @@ export default function Reservations() {
                 <ThemeIcon color="red" variant="light" radius="lg" size={50}><CalendarDays size={24}/></ThemeIcon>
               </Group>
 
+              <Alert
+                color="yellow"
+                variant="light"
+                radius="md"
+                mb="xl"
+                icon={<ShieldCheck size={19} />}
+                styles={{
+                  root: { background: "#2d2725", border: "1px solid #665244" },
+                  icon: { color: "#f4c487" },
+                  message: { color: "#e6d6c8", lineHeight: 1.6 },
+                }}
+              >
+                Puedes tener hasta <strong>2 reservas futuras activas</strong>, en fechas distintas
+                (máximo 1 por día). Las reservas canceladas y las fechas pasadas no ocupan cupo.
+                Si necesitas reservar más mesas, <Link to="/contact" style={{
+                  color: "#f8bf8b", textDecoration: "underline", fontWeight: 700,
+                }}>contacta al restaurante</Link> para coordinarlo directamente.
+              </Alert>
+
               <Box component="form" onSubmit={(event: FormEvent<HTMLFormElement>) => void submit(event)}>
                 <Group gap="sm" mb="lg">
                   <ThemeIcon size={27} radius="xl" color="red" variant="filled"><Text size="xs" c="white" fw={800}>1</Text></ThemeIcon>
