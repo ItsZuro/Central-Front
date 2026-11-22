@@ -169,10 +169,32 @@ export default function CheckoutPage() {
 
   // --- PROCESO PRINCIPAL DE ORDEN ---
   const handleProcessOrder = () => {
-    // 1. Validaciones de Campos
     if (orderMode === "delivery" && (!address.trim() || !coordinates || !deliveryQuote || isCheckingDelivery)) {
-      return toast.error("Selecciona una dirección con cobertura de delivery verificada");
+      return toast.error("Selecciona una dirección con cobertura de delivery verificada.");
     }
+    if (!phone.trim() || phone.length < 9) {
+      return toast.error("Ingresa un teléfono válido de 9 dígitos.");
+    }
+    if (!docNumber.trim()) {
+      return toast.error("El número de documento es obligatorio.");
+    }
+    if (docType === "DNI" && docNumber.length !== 8) {
+      return toast.error("El DNI debe tener 8 dígitos.");
+    }
+    if (docType === "RUC" && docNumber.length !== 11) {
+      return toast.error("El RUC debe tener 11 dígitos.");
+    }
+
+    // No crear pedidos anónimos: solicitar login solo al confirmar.
+    // El carrito persistido se mantiene y el borrador viaja en location.state.
+    if (!isClient) {
+      if (accessToken && user) {
+        return toast.error("Para comprar necesitas una cuenta con rol de cliente.");
+      }
+      navigate("/auth/login", { state: loginState });
+      return;
+    }
+
     if (checkoutConfig.isPending || checkoutConfig.isError || !checkoutConfig.data) {
       return toast.error("No se pudo cargar la configuración del pedido. Actualiza e inténtalo de nuevo.");
     }
@@ -180,24 +202,14 @@ export default function CheckoutPage() {
     const statusId = checkoutConfig.data.statuses.find((item) => item.code === "PENDING")?.id;
     const typeId = checkoutConfig.data.types.find((item) => item.code === typeCode)?.id;
     const payCode = paymentMethod === "cash" ? "CASH" : "YAPE";
-    const paymentId = checkoutConfig.data.methods.find((item) => item.code === payCode && item.provider === "INTERNAL")?.id;
+    const paymentId = checkoutConfig.data.methods.find(
+      (item) => item.code === payCode && item.provider === "INTERNAL"
+    )?.id;
     if (!statusId || !typeId || (paymentMethod !== "card" && !paymentId)) {
       return toast.error("Faltan estados, tipos de pedido o métodos de pago en el servidor.");
     }
     if (orderMode === "pickup" && !pickupStore?.id) {
       return toast.error("No hay una sucursal configurada para recoger pedidos.");
-    }
-    if (!phone.trim() || phone.length < 9) {
-      return toast.error("Ingresa un teléfono válido de 9 dígitos");
-    }
-    if (!docNumber.trim()) {
-      return toast.error("El número de documento es obligatorio");
-    }
-    if (docType === "DNI" && docNumber.length !== 8) {
-      return toast.error("El DNI debe tener 8 dígitos");
-    }
-    if (docType === "RUC" && docNumber.length !== 11) {
-      return toast.error("El RUC debe tener 11 dígitos");
     }
 
     // 2. Validación de Niubiz (Si es tarjeta)
