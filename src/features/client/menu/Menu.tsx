@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import ProductDrawer from "./components/product-drawer/ProductDrawer";
+import menuSelectStyles from "./MenuSelect.module.css";
 
 type SortOption = "featured" | "price-asc" | "price-desc" | "name";
 
@@ -208,6 +209,7 @@ function Menu() {
                     ]}
                     leftSection={<SlidersHorizontal size={17} />}
                     allowDeselect={false}
+                    classNames={{ dropdown: menuSelectStyles.dropdown, option: menuSelectStyles.option }}
                     w={{ base: "100%", xs: 230 }}
                     styles={{
                       label: { color: "#f0f0f3", marginBottom: 9 },
