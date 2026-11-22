@@ -52,7 +52,9 @@ export default function PaymentSelector({
   selectedMethod,
   onSelect,
 }: PaymentSelectorProps) {
-  const paymentMessage = selectedMethod === "card"
+  const paymentMessage = !pickupMode
+    ? "En delivery el pago se realiza antes de preparar el pedido. Niubiz permite tarjetas, Yape y otros medios habilitados."
+    : selectedMethod === "card"
     ? "Al continuar se abrirá Niubiz para elegir tarjeta, Yape u otro medio habilitado. Tu pedido no se considerará pagado hasta que Niubiz y el servidor confirmen la operación."
     : pickupMode
       ? "Pagarás en efectivo al recoger tu pedido. Se registrará con pago pendiente."
@@ -71,7 +73,7 @@ export default function PaymentSelector({
           </div>
         </div>
         <Stack gap="md">
-          <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="sm">
+          <SimpleGrid cols={{ base: 1, xs: pickupMode ? 2 : 1 }} spacing="sm">
             <PaymentOption
               method="card"
               selected={selectedMethod === "card"}
@@ -80,14 +82,16 @@ export default function PaymentSelector({
               title="Pagar en línea"
               description="Tarjetas, Yape y más · Niubiz"
             />
-            <PaymentOption
-              method="cash"
-              selected={selectedMethod === "cash"}
-              onSelect={onSelect}
-              icon={<Banknote size={21} />}
-              title="Efectivo"
-              description={pickupMode ? "Pagar al recoger" : "Pagar al recibir"}
-            />
+            {pickupMode && (
+              <PaymentOption
+                method="cash"
+                selected={selectedMethod === "cash"}
+                onSelect={onSelect}
+                icon={<Banknote size={21} />}
+                title="Efectivo"
+                description="Pagar al recoger"
+              />
+            )}
           </SimpleGrid>
           <Alert
             icon={<Info size={17} />}
