@@ -1,4 +1,10 @@
-import { useGetMyOrdersQuery } from "@/core/hooks/order/useOrder.hook";
+import { useCancelOrderMutation, useGetMyOrdersQuery } from "@/core/hooks/order/useOrder.hook";
+import type { OrderResponse } from "@/core/types/order/order.model";
+import { Button, Group, Modal, Select, Stack, Text } from "@mantine/core";
+import axios from "axios";
+import { useState } from "react";
+import { toast } from "react-toastify";
+import OrderDetailModal from "./OrderDetailModal";
 import {
   Bike,
   Check,
@@ -22,7 +28,7 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; color: string; icon: LucideIcon }
 > = {
-  PENDING_CONFIRM: {
+  PENDING_CONFIRMATION: {
     label: "Por Confirmar",
     color: "bg-orange-500/10 text-orange-500 border-orange-500/20",
     icon: Clock,
@@ -219,14 +225,51 @@ const OrderStepper = ({
 };
 
 export default function PurchaseHistory() {
-  const { data: ordersData, isLoading } = useGetMyOrdersQuery();
-  const orders = ordersData?.data || [];
+  const { data: ordersData, isLoading, isError, refetch } = useGetMyOrdersQuery();
+  const cancelMutation = useCancelOrderMutation();
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<OrderResponse | null>(null);
+  const [filter, setFilter] = useState("all");
+  const orders = [...(ordersData?.data || [])].sort((a, b) =>
+    new Date(b.date).getTime() - new Date(a.date).getTime());
+  const filteredOrders = orders.filter((order) => {
+    if (filter === "active") return !["CANCELLED", "FAILED", "COMPLETED", "DELIVERED"].includes(order.statusCode);
+    if (filter === "finished") return ["COMPLETED", "DELIVERED"].includes(order.statusCode);
+    if (filter === "cancelled") return ["CANCELLED", "FAILED"].includes(order.statusCode);
+    return true;
+  });
+
+  const confirmCancellation = async () => {
+    if (!cancelTarget || cancelMutation.isPending) return;
+    try {
+      await cancelMutation.mutateAsync({ id: cancelTarget.id });
+      toast.success("Pedido cancelado correctamente. El historial se ha actualizado.");
+      setCancelTarget(null);
+      setSelectedOrderId(null);
+    } catch (error) {
+      const message = axios.isAxiosError<{ message?: string }>(error)
+        ? error.response?.data?.message
+        : undefined;
+      toast.error(message || "No se pudo cancelar el pedido. Puede haber cambiado de estado; actualiza e inténtalo de nuevo.");
+      setCancelTarget(null);
+      await refetch();
+    }
+  };
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-neutral-900 pt-24 pb-12 flex justify-center">
         <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <section className="min-h-screen bg-neutral-900 pt-28 px-4 text-white text-center">
+        <Text c="red.4" mb="md">No se pudo cargar el historial de pedidos.</Text>
+        <Button color="red" onClick={() => void refetch()}>Reintentar</Button>
+      </section>
     );
   }
 
@@ -267,8 +310,33 @@ export default function PurchaseHistory() {
           </div>
         </div>
 
+        <Group justify="space-between" mb="lg" align="end">
+          <Text size="sm" c="#b5aeb7">{orders.length} pedidos registrados</Text>
+          <Select
+            label="Filtrar pedidos"
+            aria-label="Filtrar pedidos"
+            value={filter}
+            onChange={(value) => setFilter(value || "all")}
+            data={[
+              { value: "all", label: "Todos" },
+              { value: "active", label: "En curso" },
+              { value: "finished", label: "Finalizados" },
+              { value: "cancelled", label: "Cancelados" },
+            ]}
+            allowDeselect={false}
+            w={190}
+            comboboxProps={{ withinPortal: true }}
+            styles={{ input: { background: "#242226", color: "#fff", borderColor: "#5b4850" },
+              dropdown: { background: "#242226", color: "#fff", borderColor: "#5b4850" },
+              option: { color: "#fff" }, label: { color: "#cfc4cc" } }}
+          />
+        </Group>
+        {filteredOrders.length === 0 && (
+          <Text c="#bcb1bc" ta="center" py="xl">No hay pedidos en este filtro.</Text>
+        )}
+
         <div className="grid gap-8">
-          {orders.map((order) => {
+          {filteredOrders.map((order) => {
             // Helpers para obtener configuración visual segura
             const statusInfo = STATUS_CONFIG[order.statusCode] || {
               label: order.statusName,
@@ -333,6 +401,15 @@ export default function PurchaseHistory() {
                     <span className="text-xl font-bold text-white">
                       S/ {Number(order.total).toFixed(2)}
                     </span>
+                    <div className="mt-1 text-xs text-neutral-400">
+                      Pago: <span className={order.paymentStatus === "CONFIRMED" ? "text-green-400" : "text-amber-300"}>
+                        {order.paymentStatus === "CONFIRMED" ? "Pagado"
+                          : order.paymentStatus === "PENDING" ? "Pendiente"
+                          : order.paymentStatus === "REFUNDED" ? "Reembolsado"
+                          : order.paymentStatus === "FAILED" ? "Fallido"
+                          : order.paymentStatus || "Por consultar"}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -416,12 +493,76 @@ export default function PurchaseHistory() {
                       ))}
                     </div>
                   </div>
+                  <Group mt="md" gap="sm" wrap="wrap">
+                    <Button
+                      variant="light"
+                      color="red"
+                      radius="md"
+                      size="sm"
+                      onClick={() => setSelectedOrderId(order.id)}
+                    >
+                      Ver detalle
+                    </Button>
+                    {order.canCustomerCancel && (
+                      <Button
+                        variant="outline"
+                        color="red"
+                        radius="md"
+                        size="sm"
+                        onClick={() => setCancelTarget(order)}
+                      >
+                        Cancelar pedido
+                      </Button>
+                    )}
+                    {!order.canCustomerCancel && !["CANCELLED", "FAILED", "COMPLETED", "DELIVERED"].includes(order.statusCode) && (
+                      <Link to="/contact" className="text-xs text-rose-300 hover:text-rose-200">
+                        ¿Necesitas ayuda?
+                      </Link>
+                    )}
+                  </Group>
                 </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      <OrderDetailModal
+        orderId={selectedOrderId}
+        onClose={() => setSelectedOrderId(null)}
+        onRequestCancel={(order) => setCancelTarget(order)}
+      />
+
+      <Modal
+        opened={cancelTarget !== null}
+        onClose={() => { if (!cancelMutation.isPending) setCancelTarget(null); }}
+        centered
+        radius="lg"
+        title={<Text fw={800} c="white">Cancelar pedido #{cancelTarget?.id}</Text>}
+        styles={{
+          content: { background: "#201c21", border: "1px solid #694047", color: "white" },
+          header: { background: "#201c21" },
+          close: { color: "#fff" },
+        }}
+      >
+        <Stack gap="md">
+          <Text size="sm" c="#e7dbe4">
+            ¿Confirmas la cancelación de este pedido? Solo se permite antes de iniciar la preparación
+            y si no tiene un pago confirmado.
+          </Text>
+          <Text size="xs" c="#b8abb6">
+            El servidor volverá a validar el estado y el pago. Un pedido pagado con Niubiz
+            requiere gestión de devolución con el restaurante.
+          </Text>
+          <Group justify="end">
+            <Button variant="subtle" color="gray" disabled={cancelMutation.isPending}
+              onClick={() => setCancelTarget(null)}>Volver</Button>
+            <Button color="red" loading={cancelMutation.isPending} onClick={() => void confirmCancellation()}>
+              Confirmar cancelación
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </section>
   );
 }
