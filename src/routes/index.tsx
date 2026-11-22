@@ -3,6 +3,7 @@ import AdminLayout from "@/components/layouts/AdminLayout/AdminLayout";
 import AuthLayout from "@/components/layouts/AuthLayout/AuthLayout";
 import NotFound from "@/components/NotFound";
 import DashboardAdmin from "@/features/admin/dashboard/Dashboard";
+import AdminProfile from "@/features/admin/profile/AdminProfile";
 import ProductsAdmin from "@/features/admin/products/Products";
 import CategoriesAdmin from "@/features/admin/categories/Categories";
 import ReportsAdmin from "@/features/admin/reports/Reports";
@@ -111,6 +112,7 @@ export default function AppRoutes() {
             path="/admin/users"
             element={<UsersAdmin />}
           />
+          <Route path="/admin/profile" element={<AdminProfile />} />
         </Route>
       </Route>
 
