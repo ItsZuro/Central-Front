@@ -1,12 +1,35 @@
-import { useState } from "react";
-import axios from "axios";
-import { Link } from "react-router-dom";
 import { api } from "@/core/api/api";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import type { ApiResponse } from "@/core/types/base/api-response";
+import {
+  Alert, Badge, Box, Button, Container, Divider, Group, Paper,
+  SimpleGrid, Stack, Text, Textarea, TextInput, ThemeIcon, Title,
+} from "@mantine/core";
+import axios from "axios";
+import {
+  ArrowRight, CheckCircle2, CircleHelp, Clock3, LockKeyhole,
+  Mail, MessageCircleMore, MessageSquareText, Send, ShieldCheck,
+  Sparkles, UserRound,
+} from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
+
+function getError(error: unknown): string {
+  if (axios.isAxiosError<{ message?: string }>(error)) {
+    if (error.response?.status === 429) {
+      return "Espera un minuto antes de enviar otra consulta.";
+    }
+    if (error.response?.status === 403) {
+      return "Tu cuenta no tiene permisos para registrar consultas.";
+    }
+    return error.response?.data?.message || "No se pudo registrar el mensaje. Inténtalo nuevamente.";
+  }
+  return error instanceof Error ? error.message : "No se pudo registrar el mensaje.";
+}
 
 export default function Contact() {
-  const user = useAuthStore((s) => s.user);
+  const user = useAuthStore((state) => state.user);
   const canSubmit = Boolean(user?.roles?.includes("ROLE_CLIENT"));
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
@@ -14,74 +37,329 @@ export default function Contact() {
   const [receipt, setReceipt] = useState<number | null>(null);
   const [error, setError] = useState("");
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  const valid = subject.trim().length >= 3 && message.trim().length >= 5;
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     setReceipt(null);
-    if (!canSubmit) { setError("Debes iniciar sesión con una cuenta de cliente."); return; }
+
+    if (!canSubmit) {
+      setError("Inicia sesión con una cuenta de cliente para enviar tu consulta.");
+      return;
+    }
+    if (!valid) {
+      setError("Escribe un asunto de al menos 3 caracteres y un mensaje de al menos 5.");
+      return;
+    }
+
     setSending(true);
     try {
       const response = await api.post<ApiResponse<number>>("contact", {
-        subject: subject.trim(), message: message.trim(),
+        subject: subject.trim(),
+        message: message.trim(),
       });
-      if (!response.data.success) throw new Error(response.data.message);
+      if (!response.data.success || response.data.data == null) {
+        throw new Error(response.data.message || "No se pudo registrar el mensaje.");
+      }
       setReceipt(response.data.data);
       setSubject("");
       setMessage("");
-    } catch (e) {
-      if (axios.isAxiosError(e)) {
-        setError(e.response?.data?.message || "No se pudo registrar el mensaje.");
-      } else {
-        setError(e instanceof Error ? e.message : "No se pudo registrar el mensaje.");
-      }
+      toast.success("Tu consulta quedó registrada correctamente.");
+    } catch (cause) {
+      const message = getError(cause);
+      setError(message);
+      toast.error(message);
     } finally {
       setSending(false);
     }
-  }
+  };
 
   return (
-    <section className="min-h-screen bg-neutral-950 px-5 py-28 text-white">
-      <div className="mx-auto max-w-2xl">
-        <h1 className="mb-4 text-center text-4xl font-bold">Contáctanos</h1>
-        <p className="mb-9 text-center text-neutral-300">
-          Registra una consulta para que el equipo del restaurante pueda revisarla.
-          Este formulario no envía un correo electrónico.
-        </p>
-        {!canSubmit && (
-          <div className="mb-5 rounded-lg border border-yellow-500/50 bg-yellow-950/30 p-4">
-            Para enviar una consulta, <Link to="/auth/login" className="underline">inicia sesión</Link>
-            {" o "}
-            <Link to="/auth/signup" className="underline">crea una cuenta</Link>.
-          </div>
-        )}
-        <form onSubmit={submit} className="space-y-6 rounded-2xl border border-neutral-700 bg-neutral-900 p-7">
-          <label className="block">Cuenta
-            <input className="mt-2 w-full rounded-lg border border-neutral-600 bg-neutral-800 p-3"
-              readOnly value={user?.email || "Inicia sesión para enviar una consulta"} />
-          </label>
-          <label className="block">Asunto
-            <input className="mt-2 w-full rounded-lg border border-neutral-600 bg-neutral-800 p-3"
-              required minLength={3} maxLength={120} value={subject}
-              onChange={(e) => setSubject(e.target.value)} placeholder="¿En qué podemos ayudarte?" />
-          </label>
-          <label className="block">Mensaje
-            <textarea className="mt-2 w-full rounded-lg border border-neutral-600 bg-neutral-800 p-3"
-              required minLength={5} maxLength={3000} rows={6}
-              value={message} onChange={(e) => setMessage(e.target.value)}
-              placeholder="Describe tu consulta" />
-          </label>
-          {error && <p className="rounded-lg bg-red-950 p-3 text-red-200" role="alert">{error}</p>}
-          {receipt !== null && (
-            <p className="rounded-lg bg-green-950 p-4 text-green-200" role="status">
-              Tu mensaje fue guardado para revisión con el número #{receipt}.
-            </p>
-          )}
-          <button type="submit" disabled={!canSubmit || sending}
-            className="w-full rounded-xl bg-red-600 p-4 font-semibold hover:bg-red-700 disabled:opacity-50">
-            {sending ? "Registrando..." : "Registrar mensaje"}
-          </button>
-        </form>
-      </div>
-    </section>
+    <Box component="section" bg="#f6f7f9" style={{ minHeight: "100vh", overflow: "hidden" }}>
+      <Box
+        pos="relative"
+        style={{
+          backgroundColor: "#171316",
+          isolation: "isolate",
+          overflow: "hidden",
+        }}
+      >
+        <Box
+          pos="absolute"
+          inset={0}
+          aria-hidden="true"
+          style={{
+            zIndex: -1,
+            backgroundImage: "linear-gradient(93deg, rgba(15,13,17,0.98) 0%, rgba(20,15,17,0.92) 44%, rgba(23,13,15,0.58) 100%), url('/images/auth/AuthFoodImage.png')",
+            backgroundPosition: "center, center 45%",
+            backgroundSize: "cover",
+          }}
+        />
+        <Container size="xl" px={{ base: "lg", sm: "xl" }} pt={{ base: 150, sm: 165 }} pb={{ base: 100, sm: 130 }}>
+          <Stack gap="lg" maw={720} style={{ position: "relative" }}>
+            <Badge color="red" variant="light" size="lg" radius="xl" leftSection={<Sparkles size={14} />}>
+              Atención al cliente
+            </Badge>
+            <Title
+              order={1}
+              c="white"
+              fw={900}
+              lh={1.08}
+              style={{ fontSize: "clamp(2.8rem, 6vw, 5.3rem)", letterSpacing: "-0.045em" }}
+            >
+              Estamos aquí para
+              <Text span inherit c="red.4"> escucharte.</Text>
+            </Title>
+            <Text c="#d5d5db" size="lg" lh={1.75} maw={585}>
+              ¿Tienes una pregunta sobre nuestra carta, un pedido o una reserva?
+              Cuéntanos qué necesitas y registra tu consulta en Restaurant Central.
+            </Text>
+            <Group gap="lg" mt="xs">
+              <Group gap="xs">
+                <CheckCircle2 size={17} color="#f87171" />
+                <Text c="#eeeeef" fw={600} size="sm">Consulta registrada</Text>
+              </Group>
+              <Group gap="xs">
+                <ShieldCheck size={17} color="#f87171" />
+                <Text c="#eeeeef" fw={600} size="sm">Acceso con tu cuenta</Text>
+              </Group>
+            </Group>
+          </Stack>
+        </Container>
+      </Box>
+
+      <Container
+        size="xl"
+        px={{ base: "lg", sm: "xl" }}
+        pb={{ base: 72, sm: 112 }}
+        style={{ position: "relative", marginTop: -62, zIndex: 1 }}
+      >
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing={{ base: "lg", md: 30 }} style={{ alignItems: "start" }}>
+          <Stack gap="lg">
+            <Paper
+              radius="xl"
+              p={{ base: "xl", sm: 34 }}
+              style={{
+                background: "linear-gradient(150deg, #202026, #151519)",
+                border: "1px solid #373039",
+                boxShadow: "0 20px 60px rgba(23,18,20,0.12)",
+              }}
+            >
+              <ThemeIcon variant="light" color="red" size={54} radius="lg">
+                <MessageCircleMore size={25} />
+              </ThemeIcon>
+              <Title order={2} mt="xl" c="white" fw={800} size="h3">
+                Hablemos de tu experiencia
+              </Title>
+              <Text c="#aeb1bb" size="sm" lh={1.85} mt="sm">
+                Queremos conocer tus dudas y sugerencias. Nuestro formulario guarda
+                cada consulta para que el equipo del restaurante pueda revisarla.
+              </Text>
+              <Divider my="xl" color="#3a343d" />
+              <Stack gap="xl">
+                <Group align="flex-start" wrap="nowrap" gap="md">
+                  <ThemeIcon size={43} radius="md" color="red" variant="light" style={{ flexShrink: 0 }}>
+                    <UserRound size={20} />
+                  </ThemeIcon>
+                  <Box>
+                    <Text c="white" fw={700} size="sm">Identifícate con tu cuenta</Text>
+                    <Text c="#aeb1bb" size="sm" mt={5} lh={1.65}>
+                      Así la consulta queda vinculada a tu perfil de cliente.
+                    </Text>
+                  </Box>
+                </Group>
+                <Group align="flex-start" wrap="nowrap" gap="md">
+                  <ThemeIcon size={43} radius="md" color="red" variant="light" style={{ flexShrink: 0 }}>
+                    <MessageSquareText size={20} />
+                  </ThemeIcon>
+                  <Box>
+                    <Text c="white" fw={700} size="sm">Describe tu consulta</Text>
+                    <Text c="#aeb1bb" size="sm" mt={5} lh={1.65}>
+                      Añade un asunto claro y los detalles que necesitemos conocer.
+                    </Text>
+                  </Box>
+                </Group>
+                <Group align="flex-start" wrap="nowrap" gap="md">
+                  <ThemeIcon size={43} radius="md" color="red" variant="light" style={{ flexShrink: 0 }}>
+                    <CheckCircle2 size={20} />
+                  </ThemeIcon>
+                  <Box>
+                    <Text c="white" fw={700} size="sm">Recibe un número de registro</Text>
+                    <Text c="#aeb1bb" size="sm" mt={5} lh={1.65}>
+                      Al guardar tu consulta, la página te mostrará su identificador.
+                    </Text>
+                  </Box>
+                </Group>
+              </Stack>
+            </Paper>
+
+            <Paper withBorder radius="xl" p="lg" bg="white">
+              <Group wrap="nowrap" gap="md">
+                <ThemeIcon size={43} variant="light" color="red" radius="md" style={{ flexShrink: 0 }}>
+                  <Clock3 size={21} />
+                </ThemeIcon>
+                <Box>
+                  <Text fw={750} size="sm" c="#252631">Información importante</Text>
+                  <Text size="xs" c="dimmed" mt={5} lh={1.7}>
+                    El formulario registra mensajes para revisión. No envía correos electrónicos
+                    ni confirma un plazo de respuesta.
+                  </Text>
+                </Box>
+              </Group>
+            </Paper>
+          </Stack>
+
+          <Paper
+            radius="xl"
+            withBorder
+            p={{ base: "lg", sm: 36 }}
+            bg="white"
+            shadow="lg"
+            style={{
+              borderColor: "#e6e8ed",
+              boxShadow: "0 22px 70px rgba(16,20,29,0.11)",
+            }}
+          >
+            <Group justify="space-between" align="center" wrap="wrap" gap="xs">
+              <Group gap="xs">
+                <ThemeIcon color="red" variant="light" size={38} radius="md">
+                  <Mail size={19} />
+                </ThemeIcon>
+                <Text c="red.7" size="xs" fw={800} tt="uppercase" lts={1.6}>
+                  Escríbenos
+                </Text>
+              </Group>
+              <Badge color="gray" variant="light" size="md" radius="xl">Formulario seguro</Badge>
+            </Group>
+
+            <Title order={2} mt="lg" fw={850} c="#20212c">
+              Envíanos tu consulta
+            </Title>
+            <Text size="sm" c="dimmed" mt="sm" lh={1.7}>
+              Completa los campos y registra tu mensaje. Te mostraremos una confirmación al guardarlo.
+            </Text>
+
+            <Divider my="xl" color="#ededf1" />
+
+            {!canSubmit && (
+              <Alert
+                color="yellow"
+                radius="lg"
+                title="Necesitas una cuenta de cliente"
+                icon={<LockKeyhole size={19} />}
+                mb="xl"
+              >
+                <Stack gap="sm">
+                  <Text size="sm">
+                    Puedes conocer esta página sin iniciar sesión, pero para enviar consultas
+                    necesitas acceder con una cuenta de cliente.
+                  </Text>
+                  <Group gap="sm" wrap="wrap">
+                    <Button component={Link} to="/auth/login" size="xs" color="red" rightSection={<ArrowRight size={14} />}>
+                      Iniciar sesión
+                    </Button>
+                    <Button component={Link} to="/auth/signup" size="xs" color="gray" variant="light">
+                      Crear cuenta
+                    </Button>
+                  </Group>
+                </Stack>
+              </Alert>
+            )}
+
+            {receipt !== null && (
+              <Alert
+                color="green"
+                radius="lg"
+                mb="xl"
+                title="¡Consulta registrada correctamente!"
+                icon={<CheckCircle2 size={19} />}
+                role="status"
+              >
+                Tu mensaje se guardó para revisión con el número <strong>#{receipt}</strong>.
+                Conserva este identificador como referencia.
+              </Alert>
+            )}
+
+            <form onSubmit={(event) => void submit(event)}>
+              <Stack gap="lg">
+                <TextInput
+                  label="Tu correo electrónico"
+                  description="Se obtiene automáticamente de tu cuenta de cliente."
+                  value={user?.email || ""}
+                  placeholder="Inicia sesión para continuar"
+                  leftSection={<Mail size={17} />}
+                  readOnly
+                  disabled={!canSubmit}
+                  radius="md"
+                />
+                <TextInput
+                  data-autofocus={false}
+                  label="Asunto"
+                  description="Escribe brevemente el motivo de tu consulta."
+                  placeholder="Ej. Consulta sobre un pedido"
+                  leftSection={<CircleHelp size={18} />}
+                  required
+                  minLength={3}
+                  maxLength={120}
+                  disabled={!canSubmit || sending}
+                  value={subject}
+                  onChange={(event) => setSubject(event.currentTarget.value)}
+                  radius="md"
+                />
+                <Textarea
+                  label="Tu mensaje"
+                  description="Cuéntanos los detalles para que podamos revisarlos."
+                  placeholder="Hola, quisiera consultar sobre..."
+                  required
+                  minLength={5}
+                  maxLength={3000}
+                  minRows={6}
+                  autosize
+                  disabled={!canSubmit || sending}
+                  value={message}
+                  onChange={(event) => setMessage(event.currentTarget.value)}
+                  radius="md"
+                />
+                <Group justify="space-between" gap="xs">
+                  <Text c="dimmed" size="xs">
+                    Evita incluir contraseñas o información bancaria.
+                  </Text>
+                  <Text c="dimmed" size="xs" style={{ fontVariantNumeric: "tabular-nums" }}>
+                    {message.length}/3000
+                  </Text>
+                </Group>
+
+                {error && (
+                  <Alert color="red" title="No se pudo registrar la consulta" role="alert"
+                    onClose={() => setError("")} withCloseButton radius="lg">
+                    {error}
+                  </Alert>
+                )}
+
+                <Button
+                  type="submit"
+                  fullWidth
+                  size="lg"
+                  color="red"
+                  radius="md"
+                  loading={sending}
+                  disabled={!canSubmit || !valid}
+                  leftSection={<Send size={19} />}
+                >
+                  Registrar mi consulta
+                </Button>
+                <Group justify="center" gap="xs">
+                  <LockKeyhole size={14} color="#9ca3af" />
+                  <Text c="dimmed" size="xs" ta="center">
+                    Tu mensaje quedará registrado en Restaurant Central.
+                  </Text>
+                </Group>
+              </Stack>
+            </form>
+          </Paper>
+        </SimpleGrid>
+      </Container>
+    </Box>
   );
 }
