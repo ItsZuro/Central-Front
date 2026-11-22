@@ -1,3 +1,4 @@
+import AuthPageLayout from "@/features/auth/components/AuthPageLayout";
 import AuthBackLink from "@/features/auth/components/AuthBackLink";
 import { Link } from "react-router-dom";
 import { useSignupMutation } from "@/core/hooks/auth/useAuth.hooks";
@@ -49,8 +50,8 @@ function Signup() {
   };
 
   return (
-    <div className="w-full min-h-screen grid place-items-center bg-neutral-900 text-white p-4">
-      <div className="w-full max-w-md bg-neutral-800 rounded-2xl shadow-2xl p-8 border border-neutral-700">
+    <AuthPageLayout page="signup">
+      <div className="w-full">
         <div className="mb-5 -ml-2 flex justify-start">
           <AuthBackLink />
         </div>
@@ -215,7 +216,7 @@ function Signup() {
           </Link>
         </div>
       </div>
-    </div>
+    </AuthPageLayout>
   );
 }
 
