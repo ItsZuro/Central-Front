@@ -152,6 +152,16 @@ export default function MyReservations() {
           </Button>
         </Group>
 
+        <Alert color="yellow" variant="light" radius="lg" mb="lg"
+          styles={{ root: { background: "#2b2525", border: "1px solid #5c4642" },
+            message: { color: "#e7d4c8", lineHeight: 1.6 } }}>
+          En línea puedes tener hasta <strong>2 reservas futuras activas</strong>, con
+          un máximo de <strong>1 por día</strong>. Para varias mesas o reservas especiales,
+          <Link to="/contact" style={{ color: "#ffb88c", textDecoration: "underline", fontWeight: 700 }}>
+            contacta al restaurante
+          </Link>.
+        </Alert>
+
         {myReservations.isPending && (
           <Paper p="xl" radius="lg" style={surface}>
             <Group justify="center"><Loader color="red" size="sm" /><Text c="#cfc0c8">Cargando tus reservas...</Text></Group>
