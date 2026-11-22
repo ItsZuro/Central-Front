@@ -4,8 +4,8 @@ import { paymentService } from "@/core/services/payment/payment.service";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { useCartStore } from "@/core/stores/cart/cart.store";
 import type { OrderRequest } from "@/core/types/order/order.model";
-import { ChevronLeft, MapPin, Store, Truck } from "lucide-react";
-import { Alert, Box, Group, SegmentedControl, Text } from "@mantine/core";
+import { ChevronLeft, LockKeyhole, MapPin, Store, Truck } from "lucide-react";
+import { Alert, Badge, Box, Group, Paper, SegmentedControl, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import type { ApiResponse } from "@/core/types/base/api-response";
 import { useRef, useState } from "react";
@@ -18,6 +18,7 @@ import OrderSummary from "./components/OrderSummary";
 import PaymentSelector from "./components/PaymentSelector";
 import { BASE_URL, api } from "@/core/api/api";
 import type { AxiosError } from "axios";
+import styles from "./Checkout.module.css";
 
 type OrderMode = "pickup" | "delivery";
 type CatalogRef = { id: number; code: string };
@@ -360,133 +361,196 @@ export default function CheckoutPage() {
   if (items.length === 0) return <EmptyCartView />;
 
   return (
-    <section className="min-h-screen bg-neutral-900 text-white pt-24 pb-12 px-4 md:px-10">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
-          <Link
-            to="/menu"
-            className="p-2 bg-neutral-800 rounded-full hover:bg-neutral-700 transition-colors"
-          >
-            <ChevronLeft size={24} />
-          </Link>
-          <h1 className="text-3xl font-bold">Finalizar Pedido</h1>
-        </div>
+    <section className={styles.page}>
+      <main className={styles.container}>
+        <Link to="/menu" className={styles.backLink}>
+          <span className={styles.backCircle}><ChevronLeft size={17} /></span>
+          Seguir viendo el menú
+        </Link>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* El invitado puede revisar el pedido antes de iniciar sesión. */}
-          <div className="lg:col-span-2 space-y-8">
+        <header className={styles.header}>
+          <Box>
+            <Text className={styles.kicker} mb={9}>Restaurant Central · Tu compra</Text>
+            <Text component="h1" className={styles.heading}>Finalizar tu pedido</Text>
+            <Text className={styles.lead} mt="sm">
+              Unos datos más y podrás disfrutar tu pedido.
+            </Text>
+          </Box>
+          <div className={styles.stepTrack} aria-label="Etapas de tu compra">
+            <span className={styles.step + " " + styles.stepActive}>
+              <span className={styles.stepDot}>01</span> Tu pedido
+            </span>
+            <span className={styles.step}>
+              <span className={styles.stepDot}>02</span> Tus datos
+            </span>
+            <span className={styles.step}>
+              <span className={styles.stepDot}>03</span> Confirmación
+            </span>
+          </div>
+        </header>
+
+        <div className={styles.grid}>
+          <div className={styles.left}>
             {!isClient && (
-              <Alert color="yellow" radius="lg" icon={<Store size={19} />}
-                title="Puedes preparar tu pedido sin iniciar sesión">
-                Completa los datos, revisa el resumen y entra con tu cuenta
-                solo cuando vayas a confirmar.
-                {!accessToken && (
-                  <Box mt="sm">
-                    <Link to="/auth/login" state={loginState}
-                      className="font-bold text-yellow-200 underline underline-offset-4 hover:text-white">
-                      Ya tengo cuenta, iniciar sesión
-                    </Link>
+              <Paper className={styles.guest} p="lg">
+                <Group align="flex-start" wrap="nowrap" gap="md">
+                  <div className={styles.guestIcon}><LockKeyhole size={20} /></div>
+                  <Box style={{ flex: 1, minWidth: 0 }}>
+                    <Group justify="space-between" gap="xs" mb={6}>
+                      <Text fw={800} c="#ffe8c8" size="sm">
+                        {accessToken ? "Se necesita una cuenta de cliente" : "Compra tranquilamente como invitado"}
+                      </Text>
+                      {!accessToken && (
+                        <Badge variant="outline" color="yellow" radius="xl" size="xs">
+                          Sin registrarte todavía
+                        </Badge>
+                      )}
+                    </Group>
+                    <Text c="#dfc9ac" size="sm" lh={1.65}>
+                      {accessToken
+                        ? "La cuenta actual no tiene el rol de cliente necesario para confirmar pedidos."
+                        : "Puedes personalizar y revisar todo tu pedido. Solo te pediremos iniciar sesión al confirmar."}
+                    </Text>
+                    {!accessToken && (
+                      <Box mt="sm">
+                        <Link to="/auth/login" state={loginState} className={styles.guestLink}>
+                          ¿Ya tienes cuenta? Inicia sesión
+                        </Link>
+                      </Box>
+                    )}
                   </Box>
-                )}
-              </Alert>
+                </Group>
+              </Paper>
             )}
-                <Box
-                  p="lg"
-                  style={{ backgroundColor: "#26272e", border: "1px solid #41424a", borderRadius: 16 }}
-                >
-                  <Group gap="sm" mb="sm">
-                    <Store size={20} color="#fb7185" />
-                    <Text c="white" fw={800}>¿Cómo recibirás el pedido?</Text>
-                  </Group>
-                  <SegmentedControl
-                    fullWidth
-                    size="md"
+
+            <Paper className={styles.panel} shadow="sm">
+              <Box className={styles.panelInner}>
+                <div className={styles.panelHeader}>
+                  <div className={styles.iconBadge}><Store size={21} /></div>
+                  <div>
+                    <Text className={styles.panelTitle}>¿Cómo recibirás tu pedido?</Text>
+                    <Text className={styles.panelSubtitle}>Elige la opción que mejor se adapte a ti.</Text>
+                  </div>
+                </div>
+
+                <SegmentedControl
+                  fullWidth
+                  size="md"
+                  radius="md"
+                  h={51}
+                  value={orderMode}
+                  onChange={(value) => setOrderMode(value as OrderMode)}
+                  data={[
+                    { value: "pickup", label: "Recoger en tienda" },
+                    { value: "delivery", label: "Delivery", disabled: !canQuoteDelivery },
+                  ]}
+                  classNames={{
+                    root: styles.modeRoot,
+                    label: styles.modeLabel,
+                    indicator: styles.modeIndicator,
+                  }}
+                />
+
+                {orderMode === "pickup" && (
+                  <Alert
+                    mt="lg"
                     radius="md"
-                    value={orderMode}
-                    onChange={(value) => setOrderMode(value as OrderMode)}
-                    data={[
-                      { value: "pickup", label: "Recoger en tienda" },
-                      { value: "delivery", label: "Delivery", disabled: !canQuoteDelivery },
-                    ]}
+                    icon={<MapPin size={19} />}
+                    title={pickupConfigured ? "Punto de recogida de pruebas" : "Punto de recogida en preparación"}
                     styles={{
-                      root: { backgroundColor: "#14151a", padding: 5 },
-                      label: { fontWeight: 750 },
-                      indicator: { backgroundColor: "#e83b48" },
+                      root: { background: "#29242a", border: "1px solid #453940" },
+                      icon: { color: "#d6b178" },
+                      title: { color: "#f1debd", fontWeight: 800 },
+                      message: { color: "#c9bbc4", lineHeight: 1.6 },
                     }}
-                  />
-                  {orderMode === "pickup" && (
-                    <Alert color={pickupConfigured ? "blue" : "yellow"} mt="lg" icon={<MapPin size={19} />}
-                      title={pickupConfigured ? "Punto de recogida de pruebas" : "Configurando punto de recogida"}>
-                      {pickupStore ? (
-                        <Text size="sm">
-                          <strong>{pickupStore.name}</strong> — {pickupStore.address}. Para esta demostración
-                          la dirección exacta sigue pendiente; no acudas a ella para recoger pedidos.
+                  >
+                    {pickupStore
+                      ? (
+                        <Text size="sm" c="#c9bbc4">
+                          <Text span fw={750} c="#fff">{pickupStore.name}</Text> — {pickupStore.address}.
+                          Para esta demostración la dirección exacta sigue pendiente;
+                          no acudas a ella a recoger pedidos.
                         </Text>
-                      ) : (
-                        <Text size="sm">
+                      )
+                      : (
+                        <Text size="sm" c="#c9bbc4">
                           {isClient
-                            ? "No encontramos la sucursal. Verifica que esté registrada en PostgreSQL."
+                            ? "Todavía no se ha configurado una sucursal de recogida en el sistema."
                             : "Los detalles de la sucursal aparecerán cuando inicies sesión."}
                         </Text>
                       )}
-                    </Alert>
-                  )}
-                  {!canQuoteDelivery && isClient && (
-                    <Group gap="xs" mt="sm">
-                      <Truck size={15} color="#a9aab4" />
-                      <Text c="#a9aab4" size="xs">
-                        Delivery se habilitará cuando una sucursal tenga coordenadas reales.
-                      </Text>
-                    </Group>
-                  )}
-                </Box>
-                <DeliveryForm
-                  pickupMode={orderMode === "pickup"}
-                  address={address}
-                  coordinates={coordinates}
-                  references={references}
-                  phone={phone}
-                  docType={docType}
-                  docNumber={docNumber}
-                  onOpenMap={() => setIsMapOpen(true)}
-                  setReferences={setReferences}
-                  setPhone={setPhone}
-                  setDocType={setDocType}
-                  setDocNumber={setDocNumber}
-                />
-                {orderMode === "delivery" && isCheckingDelivery && <p className="text-amber-400 text-sm">Verificando ruta y cobertura de delivery...</p>}
-                {orderMode === "delivery" && deliveryQuote && (
-                  <p className="text-green-400 text-sm">
-                    Reparto disponible: {deliveryQuote.distanceKm.toFixed(2)} km de ruta, aproximadamente {deliveryQuote.durationMinutes} min de traslado (sin contar preparación).
-                  </p>
+                  </Alert>
                 )}
-                <PaymentSelector
-                  selectedMethod={paymentMethod}
-                  onSelect={setPaymentMethod}
-                  pickupMode={orderMode === "pickup"}
-                />
 
-                {/* Avisos de estado de la pasarela (Solo tarjeta) */}
-                {paymentMethod === "card" && (
-                  <div className="fade-in transition-opacity duration-500">
-                    {!isScriptLoaded && !scriptError && (
-                      <p className="text-yellow-500 text-sm mt-2 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-                        Conectando con servicios de seguridad...
-                      </p>
-                    )}
-                    {scriptError && (
-                      <p className="text-red-400 text-sm mt-2 p-3 bg-red-900/20 border border-red-800 rounded-lg">
-                        ⚠️ No se pudo cargar el sistema de pagos. Es posible que
-                        un bloqueador de anuncios (AdBlock) esté interfiriendo.
-                      </p>
-                    )}
-                  </div>
+                {!canQuoteDelivery && isClient && (
+                  <Group gap="xs" mt="md" wrap="nowrap">
+                    <Truck size={16} color="#b4a5af" style={{ flexShrink: 0 }} />
+                    <Text c="#b4a5af" size="xs" lh={1.5}>
+                      Delivery estará disponible cuando la sucursal tenga coordenadas reales.
+                    </Text>
+                  </Group>
                 )}
+              </Box>
+            </Paper>
+
+            <DeliveryForm
+              pickupMode={orderMode === "pickup"}
+              address={address}
+              coordinates={coordinates}
+              references={references}
+              phone={phone}
+              docType={docType}
+              docNumber={docNumber}
+              onOpenMap={() => setIsMapOpen(true)}
+              setReferences={setReferences}
+              setPhone={setPhone}
+              setDocType={setDocType}
+              setDocNumber={setDocNumber}
+            />
+
+            {orderMode === "delivery" && isCheckingDelivery && (
+              <Alert
+                color="yellow"
+                radius="lg"
+                title="Comprobando cobertura"
+                styles={{ root: { background: "#322920", border: "1px solid #604c30" }, title: { color: "#ffda9d" }, message: { color: "#ffda9d" } }}
+              >
+                Estamos verificando la ruta de entrega.
+              </Alert>
+            )}
+            {orderMode === "delivery" && deliveryQuote && (
+              <Alert
+                color="green"
+                radius="lg"
+                title="Reparto disponible"
+                styles={{ root: { background: "#1e3028", border: "1px solid #3c6850" }, title: { color: "#a9e7bc" }, message: { color: "#bde9c9" } }}
+              >
+                Ruta de {deliveryQuote.distanceKm.toFixed(2)} km; traslado estimado de {deliveryQuote.durationMinutes} min, sin incluir preparación.
+              </Alert>
+            )}
+
+            <PaymentSelector
+              selectedMethod={paymentMethod}
+              onSelect={setPaymentMethod}
+              pickupMode={orderMode === "pickup"}
+            />
+
+            {paymentMethod === "card" && !isScriptLoaded && !scriptError && (
+              <Text size="sm" c="#f2c77e">Preparando la conexión segura con Niubiz...</Text>
+            )}
+            {paymentMethod === "card" && scriptError && (
+              <Alert
+                color="red"
+                radius="lg"
+                title="No se pudo cargar la pasarela de pagos"
+                styles={{ root: { background: "#362125", border: "1px solid #713b43" }, title: { color: "#ffb9c0" }, message: { color: "#ffc8cd" } }}
+              >
+                Comprueba si un bloqueador de anuncios está interfiriendo y recarga la página.
+              </Alert>
+            )}
           </div>
 
-          {/* COLUMNA DERECHA: Resumen */}
-          <div className="lg:col-span-1">
+          <aside aria-label="Resumen de tu pedido">
             <OrderSummary
               pickupMode={orderMode === "pickup"}
               isCheckoutReady={Boolean(
@@ -502,11 +566,10 @@ export default function CheckoutPage() {
               onRemoveItem={removeItem}
               onProcessOrder={handleProcessOrder}
             />
-          </div>
+          </aside>
         </div>
-      </div>
+      </main>
 
-      {/* Modal Flotante del Mapa */}
       <MapModal
         isOpen={isMapOpen && orderMode === "delivery"}
         onClose={() => setIsMapOpen(false)}
