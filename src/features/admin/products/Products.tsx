@@ -1,5 +1,6 @@
 import { api } from "@/core/api/api";
 import axios from "axios";
+import { toast } from "react-toastify";
 import { CheckCircle2, CircleOff, Clock3, ImageOff, Pencil, Plus, Search, Tags, Trash2, UtensilsCrossed, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
@@ -74,6 +75,7 @@ export default function Products() {
       setCategories(Array.isArray(categoryRes.data?.data) ? categoryRes.data.data : []);
     } catch (err) {
       setError(errorText(err));
+      toast.error(errorText(err));
     } finally {
       setLoading(false);
     }
@@ -139,14 +141,17 @@ export default function Products() {
       if (editingId === "new") {
         await api.post("products", payload);
         setNotice("Plato registrado correctamente.");
+      toast.success("Plato registrado correctamente.");
       } else if (typeof editingId === "number") {
         await api.put("products/" + editingId, payload);
         setNotice("Producto actualizado correctamente.");
+      toast.success("Producto actualizado correctamente.");
       }
       setEditingId(null);
       await load();
     } catch (err) {
       setError(errorText(err));
+      toast.error(errorText(err));
     } finally {
       setSaving(false);
     }
@@ -158,9 +163,11 @@ export default function Products() {
     try {
       await api.patch("products/" + product.id + "/toggle-active");
       setNotice(product.active ? "Producto ocultado del menú público." : "Producto publicado en el menú.");
+      toast.success(product.active ? "Producto ocultado del menú público." : "Producto publicado en el menú.");
       await load();
     } catch (err) {
       setError(errorText(err));
+      toast.error(errorText(err));
     }
   };
 
@@ -171,9 +178,11 @@ export default function Products() {
     try {
       await api.delete("products/" + product.id);
       setNotice("Producto eliminado.");
+      toast.success("Producto eliminado.");
       await load();
     } catch (err) {
       setError(errorText(err));
+      toast.error(errorText(err));
     }
   };
 
