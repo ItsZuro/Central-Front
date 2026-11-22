@@ -83,6 +83,26 @@ export interface UpdateStatusRequest {
   newStatusCode: string;
 }
 
+// Vista de producción: sin direcciones, datos personales ni cobros detallados.
+export interface KitchenOrderLine {
+  id: number;
+  productName: string;
+  quantity: number;
+  notes?: string | null;
+  selectedExtras?: string | null;
+}
+
+export interface KitchenOrderResponse {
+  id: number;
+  date: string;
+  statusCode: string;
+  typeCode: "DINE_IN" | "TAKE_AWAY" | "DELIVERY";
+  tableCode?: string | null;
+  pickupStoreName?: string | null;
+  paymentConfirmed: boolean;
+  items: KitchenOrderLine[];
+}
+
 export interface OrderResponse {
   id: number;
 
