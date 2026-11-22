@@ -91,9 +91,27 @@
   color: #f5f5f7;
 }
 
-.option[data-combobox-selected],
-.option[data-combobox-active] {
-  background: #9f2434;
+/* El tema global del cliente es claro: forzamos contraste en los menús
+   portales de Select (fuera del árbol .root). */
+.option,
+.option:not([data-disabled]) {
+  background: #29282e;
+  color: #f6f5f7;
+}
+.option:not([data-disabled]):hover,
+.option:not([data-disabled])[data-combobox-hovered],
+.option:not([data-disabled])[data-combobox-active] {
+  background: #49323b !important;
+  color: #ffffff !important;
+}
+.option[data-combobox-selected] {
+  background: #9f2434 !important;
+  color: #ffffff !important;
+}
+.option[data-disabled] {
+  background: #25242a !important;
+  color: #99949f !important;
+  cursor: not-allowed;
 }
 
 .fieldLabel {
@@ -198,4 +216,53 @@
 .actionCard {
   display: block;
   border-radius: 12px;
+}
+
+
+/* Navegación Mantine: ningún hover debe poner texto claro sobre fondo blanco. */
+.root :global(.mantine-Tabs-tab:hover),
+.root :global(.mantine-Tabs-tab:hover:not([data-active])) {
+  background: #373039 !important;
+  color: #fff !important;
+}
+.root :global(.mantine-Tabs-tab[data-active]),
+.root :global(.mantine-Tabs-tab[data-active]:hover) {
+  background: #e63943 !important;
+  color: #fff !important;
+}
+.root :global(.mantine-SegmentedControl-label:hover) {
+  color: #fff !important;
+}
+.root :global(.mantine-Button-root[data-variant="default"]:hover) {
+  background: #423840 !important;
+  color: #fff !important;
+}
+.root :global(.mantine-Button-root[data-variant="subtle"]:hover) {
+  background: #392f38 !important;
+  color: #fff !important;
+}
+
+.modalContent {
+  color-scheme: dark;
+}
+.modalContent :global(.mantine-NumberInput-control) {
+  background: #302d35;
+  color: #e9e4ed;
+  border-color: #56505c;
+}
+.modalContent :global(.mantine-NumberInput-control:hover) {
+  background: #543641 !important;
+  color: #fff !important;
+}
+.modalContent :global(.mantine-NumberInput-controls) {
+  border-left: 1px solid #56505c;
+}
+.modalContent :global(.mantine-Button-root[data-variant="default"]) {
+  background: #34303a;
+  color: #f8f5f9;
+  border-color: #554f5c;
+}
+.modalContent :global(.mantine-Button-root[data-variant="default"]:hover) {
+  background: #4a3d49 !important;
+  color: #fff !important;
 }
