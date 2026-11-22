@@ -98,6 +98,19 @@ export default function Profile() {
     staleTime: 60_000,
   });
 
+  const reservationsQuery = useQuery({
+    queryKey: ["profile", "my-reservations", user?.id],
+    queryFn: async () => {
+      const response = await api.get<ApiResponse<{ totalElements: number }>>("reservations/me", {
+        params: { page: 0, size: 1 },
+      });
+      if (!response.data.success) throw new Error(response.data.message);
+      return response.data.data;
+    },
+    enabled: Boolean(user && accessToken),
+    staleTime: 60_000,
+  });
+
   if (!user || !accessToken) {
     return <Navigate to="/auth/login" replace state={{ from: "/profile" }} />;
   }
@@ -115,6 +128,8 @@ export default function Profile() {
     : ordersAvailable
       ? String(orders.filter((order) => !["COMPLETED", "DELIVERED", "CANCELLED", "FAILED"].includes(order.statusCode)).length)
       : "—";
+  const reservationCount = reservationsQuery.isPending ? "…"
+    : reservationsQuery.isError ? "—" : String(reservationsQuery.data?.totalElements ?? 0);
 
   const saveProfile = async (data: ProfileFormData) => {
     try {
@@ -414,10 +429,10 @@ export default function Profile() {
                   <div className={styles.iconBox}><ClipboardList size={20} /></div>
                   <Box>
                     <Text className={styles.panelTitle}>Tu actividad</Text>
-                    <Text className={styles.panelDesc}>Un vistazo a tus pedidos en Central.</Text>
+                    <Text className={styles.panelDesc}>Tu actividad de pedidos y reservas en Central.</Text>
                   </Box>
                 </Group>
-                <SimpleGrid cols={2} spacing="sm">
+                <SimpleGrid cols={{ base: 1, xs: 2, sm: 3 }} spacing="sm">
                   <div className={styles.metric}>
                     <Text className={styles.metricTitle}>Pedidos realizados</Text>
                     <Text className={styles.metricValue}>{orderCount}</Text>
@@ -428,24 +443,27 @@ export default function Profile() {
                     <Text className={styles.metricValue}>{activeCount}</Text>
                     <Text className={styles.metricFoot}>Pedidos activos</Text>
                   </div>
+                  <div className={styles.metric}>
+                    <Text className={styles.metricTitle}>Reservas</Text>
+                    <Text className={styles.metricValue}>{reservationCount}</Text>
+                    <Text className={styles.metricFoot}>En tu historial</Text>
+                  </div>
                 </SimpleGrid>
                 {ordersQuery.isError && (
                   <Alert mt="md" color="yellow" variant="light" radius="md">
                     No pudimos consultar tu historial ahora. Puedes intentarlo desde Mis pedidos.
                   </Alert>
                 )}
-                <Button
-                  component={Link}
-                  to="/my-orders"
-                  fullWidth
-                  mt="lg"
-                  variant="outline"
-                  radius="md"
-                  className={styles.secondaryButton}
-                  rightSection={<ArrowRight size={17} />}
-                >
-                  Consultar mis pedidos
-                </Button>
+                <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="sm" mt="lg">
+                  <Button component={Link} to="/my-orders" fullWidth variant="outline"
+                    radius="md" className={styles.secondaryButton} rightSection={<ArrowRight size={17} />}>
+                    Mis pedidos
+                  </Button>
+                  <Button component={Link} to="/my-reservations" fullWidth variant="outline"
+                    radius="md" className={styles.secondaryButton} rightSection={<ArrowRight size={17} />}>
+                    Mis reservas
+                  </Button>
+                </SimpleGrid>
               </div>
             </Paper>
 
@@ -459,6 +477,14 @@ export default function Profile() {
                     <span>
                       <Text className={styles.quickLinkTitle}>Mis pedidos</Text>
                       <Text className={styles.quickLinkDesc}>Consulta compras y su estado</Text>
+                    </span>
+                    <ArrowRight size={17} className={styles.quickArrow} />
+                  </Link>
+                  <Link className={styles.quickLink} to="/my-reservations">
+                    <span className={styles.quickLinkIcon}><CalendarDays size={19} /></span>
+                    <span>
+                      <Text className={styles.quickLinkTitle}>Mis reservas</Text>
+                      <Text className={styles.quickLinkDesc}>Consulta y gestiona tus visitas</Text>
                     </span>
                     <ArrowRight size={17} className={styles.quickArrow} />
                   </Link>
