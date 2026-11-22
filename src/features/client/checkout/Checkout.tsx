@@ -4,8 +4,11 @@ import { paymentService } from "@/core/services/payment/payment.service";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { useCartStore } from "@/core/stores/cart/cart.store";
 import type { OrderRequest } from "@/core/types/order/order.model";
-import { ChevronLeft } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, MapPin, Store, Truck } from "lucide-react";
+import { Alert, Box, Group, SegmentedControl, Text } from "@mantine/core";
+import { useQuery } from "@tanstack/react-query";
+import type { ApiResponse } from "@/core/types/base/api-response";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import DeliveryForm from "./components/DeliveryForm";
@@ -16,6 +19,11 @@ import OrderSummary from "./components/OrderSummary";
 import PaymentSelector from "./components/PaymentSelector";
 import { BASE_URL, api } from "@/core/api/api";
 import type { AxiosError } from "axios";
+
+type OrderMode = "pickup" | "delivery";
+type CatalogRef = { id: number; code: string };
+type StoreRef = { id: number; name: string; address: string; latitude: number | null; longitude: number | null };
+type PaymentRef = CatalogRef & { provider: string };
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -29,9 +37,44 @@ export default function CheckoutPage() {
   const createOrderMutation = useCreateOrderMutation();
   const { isPending: isCreatingOrder } = createOrderMutation;
 
-  // --- ESTADOS DEL FORMULARIO ---
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "cash" | "yape">(
-    "card"
+  // Elegir recogida permite probar pedidos sin configurar una ruta ficticia.
+  const [orderMode, setOrderMode] = useState<OrderMode>("pickup");
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "cash" | "yape">("cash");
+
+  // Identificadores reales del backend: nunca asumir que los IDs coinciden con
+  // el orden de inserción en PostgreSQL.
+  const checkoutConfig = useQuery({
+    queryKey: ["checkout-config"],
+    queryFn: async () => {
+      const [types, statuses, methods, stores] = await Promise.all([
+        api.get<ApiResponse<CatalogRef[]>>("order-types"),
+        api.get<ApiResponse<CatalogRef[]>>("order-statuses"),
+        api.get<ApiResponse<PaymentRef[]>>("payment-methods"),
+        api.get<ApiResponse<StoreRef[]>>("stores"),
+      ]);
+      if (![types.data.success, statuses.data.success, methods.data.success, stores.data.success].every(Boolean)) {
+        throw new Error("No se pudo cargar la configuración de pedidos.");
+      }
+      return {
+        types: types.data.data,
+        statuses: statuses.data.data,
+        methods: methods.data.data,
+        stores: stores.data.data,
+      };
+    },
+    staleTime: 60_000,
+  });
+  const pickupStore = checkoutConfig.data?.stores.find((store) =>
+    store.name.toLocaleLowerCase("es-PE").includes("central") && store.name.toLocaleLowerCase("es-PE").includes("ica")
+  ) || checkoutConfig.data?.stores[0];
+  const canQuoteDelivery = checkoutConfig.data?.stores.some(
+    (store) => Number.isFinite(store.latitude) && Number.isFinite(store.longitude)
+  ) || false;
+  const pickupConfigured = Boolean(
+    pickupStore &&
+    checkoutConfig.data?.types.some((type) => type.code === "TAKE_AWAY") &&
+    checkoutConfig.data?.statuses.some((status) => status.code === "PENDING") &&
+    checkoutConfig.data?.methods.some((method) => method.code === "CASH" && method.provider === "INTERNAL")
   );
 
   // Datos de Entrega
@@ -62,13 +105,6 @@ export default function CheckoutPage() {
   // Coincide con el cálculo de IGV configurado en Spring Boot (18%).
   const total = Number((subtotal * 1.18 + deliveryFee).toFixed(2));
   const isLoading = isCreatingOrder || isProcessingPayment;
-
-  // Debug de usuario
-  useEffect(() => {
-    if (user) {
-      console.log("Checkout iniciado por:", user.username);
-    }
-  }, [user]);
 
   // --- HANDLERS DEL MAPA ---
   const handleLocationSelect = (
@@ -111,8 +147,22 @@ export default function CheckoutPage() {
   // --- PROCESO PRINCIPAL DE ORDEN ---
   const handleProcessOrder = () => {
     // 1. Validaciones de Campos
-    if (!address.trim() || !coordinates || !deliveryQuote || isCheckingDelivery) {
+    if (orderMode === "delivery" && (!address.trim() || !coordinates || !deliveryQuote || isCheckingDelivery)) {
       return toast.error("Selecciona una dirección con cobertura de delivery verificada");
+    }
+    if (checkoutConfig.isPending || checkoutConfig.isError || !checkoutConfig.data) {
+      return toast.error("No se pudo cargar la configuración del pedido. Actualiza e inténtalo de nuevo.");
+    }
+    const typeCode = orderMode === "pickup" ? "TAKE_AWAY" : "DELIVERY";
+    const statusId = checkoutConfig.data.statuses.find((item) => item.code === "PENDING")?.id;
+    const typeId = checkoutConfig.data.types.find((item) => item.code === typeCode)?.id;
+    const payCode = paymentMethod === "cash" ? "CASH" : "YAPE";
+    const paymentId = checkoutConfig.data.methods.find((item) => item.code === payCode && item.provider === "INTERNAL")?.id;
+    if (!statusId || !typeId || (paymentMethod !== "card" && !paymentId)) {
+      return toast.error("Faltan estados, tipos de pedido o métodos de pago en el servidor.");
+    }
+    if (orderMode === "pickup" && !pickupStore?.id) {
+      return toast.error("No hay una sucursal configurada para recoger pedidos.");
     }
     if (!phone.trim() || phone.length < 9) {
       return toast.error("Ingresa un teléfono válido de 9 dígitos");
@@ -143,16 +193,16 @@ export default function CheckoutPage() {
 
     // 3. Construir Payload para la Orden
     const orderPayload: OrderRequest = {
-      customerId: user?.id || null,
-      statusId: 1, // PENDING
-      typeId: 3, // DELIVERY
+      statusId,
+      typeId,
+      pickupStoreId: orderMode === "pickup" ? pickupStore?.id : undefined,
       details: items.map((item) => ({
         productId: item.product.id,
         quantity: item.quantity,
         extraIds: item.selectedExtras.map((extra) => extra.id),
         notes: item.notes,
       })),
-      deliveryAddress: {
+      deliveryAddress: orderMode === "delivery" && coordinates ? {
         street: address,
         reference: references,
         city: "Ica",
@@ -161,13 +211,13 @@ export default function CheckoutPage() {
         latitude: coordinates.lat,
         longitude: coordinates.lng,
         instructions: items[0]?.notes || "",
-      },
+      } : undefined,
       // Si es tarjeta, NO enviamos el pago en la creación (se hace en el flujo de Niubiz después)
       payments:
         paymentMethod !== "card"
           ? [
               {
-                paymentMethodId: paymentMethod === "cash" ? 1 : 3,
+                paymentMethodId: paymentId!,
                 amount: total,
                 isOnline: false,
                 status: "PENDING",
@@ -266,7 +316,7 @@ export default function CheckoutPage() {
     setIsProcessingPayment(false);
     clearCart();
     navigate("/payment/success", {
-      state: { orderId, paymentStatus: "PENDING" },
+      state: { orderId, paymentStatus: "PENDING", orderMode },
       replace: true,
     });
   };
@@ -294,7 +344,54 @@ export default function CheckoutPage() {
               <LoginPrompt />
             ) : (
               <>
+                <Box
+                  p="lg"
+                  style={{ backgroundColor: "#26272e", border: "1px solid #41424a", borderRadius: 16 }}
+                >
+                  <Group gap="sm" mb="sm">
+                    <Store size={20} color="#fb7185" />
+                    <Text c="white" fw={800}>¿Cómo recibirás el pedido?</Text>
+                  </Group>
+                  <SegmentedControl
+                    fullWidth
+                    size="md"
+                    radius="md"
+                    value={orderMode}
+                    onChange={(value) => setOrderMode(value as OrderMode)}
+                    data={[
+                      { value: "pickup", label: "Recoger en tienda" },
+                      { value: "delivery", label: "Delivery", disabled: !canQuoteDelivery },
+                    ]}
+                    styles={{
+                      root: { backgroundColor: "#14151a", padding: 5 },
+                      label: { fontWeight: 750 },
+                      indicator: { backgroundColor: "#e83b48" },
+                    }}
+                  />
+                  {orderMode === "pickup" && (
+                    <Alert color={pickupConfigured ? "blue" : "yellow"} mt="lg" icon={<MapPin size={19} />}
+                      title={pickupConfigured ? "Punto de recogida de pruebas" : "Configurando punto de recogida"}>
+                      {pickupStore ? (
+                        <Text size="sm">
+                          <strong>{pickupStore.name}</strong> — {pickupStore.address}. Para esta demostración
+                          la dirección exacta sigue pendiente; no acudas a ella para recoger pedidos.
+                        </Text>
+                      ) : (
+                        <Text size="sm">No encontramos la sucursal. Verifica que esté registrada en PostgreSQL.</Text>
+                      )}
+                    </Alert>
+                  )}
+                  {!canQuoteDelivery && (
+                    <Group gap="xs" mt="sm">
+                      <Truck size={15} color="#a9aab4" />
+                      <Text c="#a9aab4" size="xs">
+                        Delivery se habilitará cuando una sucursal tenga coordenadas reales.
+                      </Text>
+                    </Group>
+                  )}
+                </Box>
                 <DeliveryForm
+                  pickupMode={orderMode === "pickup"}
                   address={address}
                   coordinates={coordinates}
                   references={references}
@@ -307,8 +404,8 @@ export default function CheckoutPage() {
                   setDocType={setDocType}
                   setDocNumber={setDocNumber}
                 />
-                {isCheckingDelivery && <p className="text-amber-400 text-sm">Verificando ruta y cobertura de delivery...</p>}
-                {deliveryQuote && (
+                {orderMode === "delivery" && isCheckingDelivery && <p className="text-amber-400 text-sm">Verificando ruta y cobertura de delivery...</p>}
+                {orderMode === "delivery" && deliveryQuote && (
                   <p className="text-green-400 text-sm">
                     Reparto disponible: {deliveryQuote.distanceKm.toFixed(2)} km de ruta, aproximadamente {deliveryQuote.durationMinutes} min de traslado (sin contar preparación).
                   </p>
@@ -316,6 +413,7 @@ export default function CheckoutPage() {
                 <PaymentSelector
                   selectedMethod={paymentMethod}
                   onSelect={setPaymentMethod}
+                  pickupMode={orderMode === "pickup"}
                 />
 
                 {/* Avisos de estado de la pasarela (Solo tarjeta) */}
@@ -342,6 +440,11 @@ export default function CheckoutPage() {
           {/* COLUMNA DERECHA: Resumen */}
           <div className="lg:col-span-1">
             <OrderSummary
+              pickupMode={orderMode === "pickup"}
+              isCheckoutReady={Boolean(
+                !checkoutConfig.isLoading && !checkoutConfig.isError &&
+                (orderMode === "pickup" ? pickupConfigured : canQuoteDelivery)
+              )}
               items={items}
               subtotal={subtotal}
               deliveryFee={deliveryFee}
@@ -357,7 +460,7 @@ export default function CheckoutPage() {
 
       {/* Modal Flotante del Mapa */}
       <MapModal
-        isOpen={isMapOpen}
+        isOpen={isMapOpen && orderMode === "delivery"}
         onClose={() => setIsMapOpen(false)}
         onConfirm={handleConfirmMap}
         onLocationSelect={handleLocationSelect}
