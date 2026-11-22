@@ -1,6 +1,6 @@
 import AuthPageLayout from "@/features/auth/components/AuthPageLayout";
 import AuthBackLink from "@/features/auth/components/AuthBackLink";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useSignupMutation } from "@/core/hooks/auth/useAuth.hooks";
 import {
   signupSchema,
@@ -12,6 +12,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 function Signup() {
+  const location = useLocation();
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 
@@ -210,6 +211,7 @@ function Signup() {
           ¿Ya tienes una cuenta?{" "}
           <Link
             to="/auth/login"
+            state={location.state}
             className="text-red-500 font-bold hover:text-red-400 transition-colors hover:underline"
           >
             Inicia sesión aquí
