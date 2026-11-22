@@ -5,7 +5,7 @@ export default function AuthLayout() {
   const accessToken = useAuthStore((state) => state.accessToken);
   const user = useAuthStore((state) => state.user);
 
-  if (accessToken && user?.roles?.includes("ROLE_ADMIN")) {
+  if (accessToken && user?.roles?.some((role) => ["ROLE_ADMIN", "ROLE_MANAGER"].includes(role))) {
     return <Navigate to="/admin/dashboard" replace />;
   }
 
