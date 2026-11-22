@@ -1,6 +1,7 @@
 import { api } from "@/core/api/api";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import axios from "axios";
+import { toast } from "react-toastify";
 import { CircleUserRound, Pencil, Plus, Search, ShieldCheck, UserRoundCheck, UsersRound, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
@@ -56,6 +57,7 @@ export default function Users() {
       setUsers(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (err) {
       setError(errorText(err));
+      toast.error(errorText(err));
     } finally {
       setLoading(false);
     }
@@ -101,9 +103,11 @@ export default function Users() {
       });
       setEditing(null);
       setNotice("Usuario actualizado correctamente.");
+      toast.success("Usuario actualizado correctamente.");
       await load();
     } catch (err) {
       setError(errorText(err));
+      toast.error(errorText(err));
     } finally {
       setSaving(false);
     }
@@ -127,9 +131,11 @@ export default function Users() {
       setCreating(false);
       setNewUser({ username: "", email: "", firstName: "", lastName: "", phone: "", password: "", role: "ROLE_WAITER" });
       setNotice("Cuenta creada correctamente. Ya puede iniciar sesión con sus credenciales.");
+      toast.success("Cuenta creada correctamente. Ya puede iniciar sesión con sus credenciales.");
       await load();
     } catch (err) {
       setError(errorText(err));
+      toast.error(errorText(err));
     } finally {
       setSaving(false);
     }
