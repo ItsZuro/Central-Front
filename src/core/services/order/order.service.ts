@@ -4,12 +4,29 @@ import type {
   AssignDriverRequest,
   OrderRequest,
   OrderResponse,
+  KitchenOrderResponse,
   PaymentInOrderRequest,
   UpdateLocationRequest,
   UpdateStatusRequest,
 } from "@/core/types/order/order.model"; 
 
 export const orderService = {
+  async getKitchenBoard(): Promise<ApiResponse<KitchenOrderResponse[]>> {
+    const res = await api.get<ApiResponse<KitchenOrderResponse[]>>("/orders/kitchen");
+    return res.data;
+  },
+
+  async advanceKitchenOrder(
+    id: number,
+    target: "IN_PROGRESS" | "READY_FOR_PICKUP" | "COMPLETED"
+  ): Promise<ApiResponse<KitchenOrderResponse>> {
+    const res = await api.put<ApiResponse<KitchenOrderResponse>>(
+      "/orders/kitchen/" + id + "/status",
+      { newStatusCode: target }
+    );
+    return res.data;
+  },
+
   async getAssignedDeliveries(): Promise<ApiResponse<OrderResponse[]>> {
     const res = await api.get<ApiResponse<OrderResponse[]>>("/orders/delivery/assigned-me");
     return res.data;
