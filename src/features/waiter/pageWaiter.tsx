@@ -11,7 +11,7 @@ import {
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import {
-  AlertCircle, ArrowLeft, ArrowRight, BellRing, CalendarDays, CheckCircle2,
+  AlertCircle, ArrowRight, BellRing, CalendarDays, CheckCircle2,
   ChefHat, ClipboardList, Clock3, Coffee, LayoutDashboard, LogOut, MapPin,
   RefreshCw, Search, Sparkles, Truck, Users, UtensilsCrossed,
   type LucideIcon,
@@ -364,8 +364,7 @@ export default function WaiterApp() {
               </Button>
             </Group>
           </ScrollArea>
-          <Button component={Link} to="/" variant="subtle" color="gray" size="xs"
-            leftSection={<ArrowLeft size={15}/>}>Volver al restaurante</Button>
+          <Text size="xs" c="#aba6b1">Área exclusiva del personal</Text>
         </Group>
 
         {(ordersQuery.isError || tablesQuery.isError || todayReservations.isError ||
