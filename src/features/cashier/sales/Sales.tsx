@@ -401,7 +401,12 @@ export default function Sales() {
           <Group justify="space-between" align="flex-start" wrap="wrap" gap="md" mb="lg">
             <Box><Title order={3} c="white">Pedidos pendientes de cobro</Title>
               <Text size="xs" c={muted} mt={6}>El importe definitivo lo determina el servidor.</Text></Box>
-            {shift && <Box><NewDineInOrder onCreated={() => void refresh()} label="Nueva venta presencial"/></Box>}
+            {shift && <Box><NewDineInOrder
+              onCreated={() => { void refresh(); setTab("payments"); }}
+              onCreatedOrder={showCollect}
+              defaultOrderType="TAKE_AWAY"
+              label="Nueva venta presencial"
+            /></Box>}
           </Group>
           {!shift && <Alert color="orange" icon={<AlertCircle size={17}/>} mb="md">
             Abre tu turno antes de registrar ventas o cobrar pedidos.
