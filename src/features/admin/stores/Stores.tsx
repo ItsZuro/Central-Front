@@ -198,18 +198,27 @@ export default function Stores() {
             label="Nombre de la sucursal"
             required
             value={draft.name}
-            onChange={(event) => setDraft((old) => ({ ...old, name: event.currentTarget.value }))}
+            onChange={(event) => {
+              const nextValue = event.currentTarget.value;
+              setDraft((old) => ({ ...old, name: nextValue }));
+            }}
           />
           <TextInput
             label="Teléfono"
             value={draft.phone || ""}
-            onChange={(event) => setDraft((old) => ({ ...old, phone: event.currentTarget.value }))}
+            onChange={(event) => {
+              const nextValue = event.currentTarget.value;
+              setDraft((old) => ({ ...old, phone: nextValue }));
+            }}
           />
           <TextInput
             label="Dirección del local"
             required
             value={draft.address}
-            onChange={(event) => setDraft((old) => ({ ...old, address: event.currentTarget.value }))}
+            onChange={(event) => {
+              const nextValue = event.currentTarget.value;
+              setDraft((old) => ({ ...old, address: nextValue }));
+            }}
           />
           <Group grow>
             <TextInput
@@ -217,14 +226,20 @@ export default function Stores() {
               label="Apertura"
               required
               value={draft.openTime}
-              onChange={(event) => setDraft((old) => ({ ...old, openTime: event.currentTarget.value }))}
+              onChange={(event) => {
+              const nextValue = event.currentTarget.value;
+              setDraft((old) => ({ ...old, openTime: nextValue }));
+            }}
             />
             <TextInput
               type="time"
               label="Cierre"
               required
               value={draft.closeTime}
-              onChange={(event) => setDraft((old) => ({ ...old, closeTime: event.currentTarget.value }))}
+              onChange={(event) => {
+              const nextValue = event.currentTarget.value;
+              setDraft((old) => ({ ...old, closeTime: nextValue }));
+            }}
             />
           </Group>
         </SimpleGrid>
