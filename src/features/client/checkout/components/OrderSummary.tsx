@@ -1,6 +1,5 @@
 import type { CartItem } from "@/core/stores/cart/cart.store";
 import { ShoppingBag, Trash2 } from "lucide-react";
-import { Link } from "react-router-dom";
 
 interface OrderSummaryProps {
   pickupMode?: boolean;
@@ -106,28 +105,28 @@ export default function OrderSummary({
           <span>S/ {total.toFixed(2)}</span>
         </div>
 
-        {isUserLoggedIn ? (
-          <button
-            onClick={onProcessOrder}
-            disabled={isLoading || !isCheckoutReady}
-            className="w-full mt-4 bg-red-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-red-900/40 hover:bg-red-700 hover:shadow-red-900/60 transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
-          >
-            {isLoading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Procesando...</span>
-              </>
-            ) : (
-              isCheckoutReady ? "Confirmar Pedido" : "Preparando pedido..."
-            )}
-          </button>
-        ) : (
-          <Link
-            to="/auth/login"
-            className="block w-full mt-4 bg-neutral-700 text-white py-4 rounded-xl font-bold text-center hover:bg-neutral-600 transition-colors border border-neutral-600"
-          >
-            Iniciar Sesión para Pagar
-          </Link>
+        <button
+          onClick={onProcessOrder}
+          disabled={isLoading || !isCheckoutReady}
+          className="w-full mt-4 bg-red-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-red-900/40 hover:bg-red-700 hover:shadow-red-900/60 transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+        >
+          {isLoading ? (
+            <>
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span>Procesando...</span>
+            </>
+          ) : !isCheckoutReady ? (
+            "Preparando pedido..."
+          ) : isUserLoggedIn ? (
+            "Confirmar pedido"
+          ) : (
+            "Continuar e iniciar sesión"
+          )}
+        </button>
+        {!isUserLoggedIn && (
+          <p className="text-xs text-center text-gray-400 leading-relaxed">
+            Puedes revisar el pedido como invitado. El inicio de sesión solo es necesario para registrarlo.
+          </p>
         )}
       </div>
     </div>
