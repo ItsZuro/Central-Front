@@ -1,6 +1,6 @@
 import AuthPageLayout from "@/features/auth/components/AuthPageLayout";
 import AuthBackLink from "@/features/auth/components/AuthBackLink";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useLoginMutation } from "@/core/hooks/auth/useAuth.hooks";
 import type { LoginSchema } from "@/core/schemas/auth/login.schema";
 import { loginSchema } from "@/core/schemas/auth/login.schema";
@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
 function Login() {
+  const location = useLocation();
   const { mutate, isPending } = useLoginMutation();
 
   const {
@@ -138,6 +139,7 @@ function Login() {
           ¿No tienes cuenta?{" "}
           <Link
             to="/auth/signup"
+            state={location.state}
             className="text-red-500 font-bold hover:text-red-400 transition-colors hover:underline"
           >
             Regístrate aquí
