@@ -2,7 +2,7 @@ import { logoutFromServer } from "@/core/services/auth/logout";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import { useCartStore } from "@/core/stores/cart/cart.store";
 import {
-  ActionIcon, Avatar, Badge, Box, Burger, Button, Container,
+  ActionIcon, Avatar, Box, Burger, Button, Container,
   Divider, Drawer, Group, Indicator, Menu, Stack, Text,
 } from "@mantine/core";
 import {
