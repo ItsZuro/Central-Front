@@ -100,6 +100,7 @@ interface LocationPickerProps {
   onLocationSelect: (address: string, lat: number, lng: number) => void;
   initialLat?: number;
   initialLng?: number;
+  initialAddress?: string;
   preferGeolocation?: boolean;
 }
 
@@ -107,6 +108,7 @@ export default function LocationPicker({
   onLocationSelect,
   initialLat,
   initialLng,
+  initialAddress,
   preferGeolocation = false,
 }: LocationPickerProps) {
   const { isLoaded } = useJsApiLoader({
@@ -116,12 +118,12 @@ export default function LocationPicker({
 
   const [, setMap] = useState<google.maps.Map | null>(null);
   const [position, setPosition] = useState(defaultCenter);
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState(initialAddress || "");
   const [loadingAddress, setLoadingAddress] = useState(false);
 
   useEffect(() => {
-    if (initialLat && initialLng) {
-      setPosition({ lat: initialLat, lng: initialLng });
+    if (Number.isFinite(initialLat) && Number.isFinite(initialLng)) {
+      setPosition({ lat: initialLat!, lng: initialLng! });
     } else if (preferGeolocation && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
