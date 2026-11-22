@@ -62,11 +62,12 @@ export default function StorePickupCard({ store, isClient }: StorePickupCardProp
             Te avisaremos cuando tu pedido esté disponible para recoger.
           </Text>
           {locationQuery && (
-            <Group mt="md" gap="xs" wrap="wrap">
+            <Group mt="md" gap="sm" wrap="wrap">
               {hasCoords ? (
                 <Button
-                  variant="light"
+                  variant="filled"
                   color="red"
+                  className={styles.locationPrimaryAction}
                   radius="md"
                   size="sm"
                   leftSection={<MapPin size={15} />}
@@ -81,8 +82,9 @@ export default function StorePickupCard({ store, isClient }: StorePickupCardProp
                   href={mapsSearchUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  variant="light"
+                  variant="filled"
                   color="red"
+                  className={styles.locationPrimaryAction}
                   radius="md"
                   size="sm"
                   leftSection={<ExternalLink size={15} />}
@@ -98,7 +100,8 @@ export default function StorePickupCard({ store, isClient }: StorePickupCardProp
                 radius="md"
                 size="sm"
                 variant="outline"
-                color="gray"
+                color="red"
+                className={styles.locationSecondaryAction}
                 leftSection={<Navigation size={15} />}
               >
                 Cómo llegar
@@ -110,7 +113,7 @@ export default function StorePickupCard({ store, isClient }: StorePickupCardProp
       {hasCoords && (
         <Collapse in={mapVisible}>
           <Box mt="md" className={styles.previewFrame}>
-            <StoreMapPreview lat={store.latitude!} lng={store.longitude!} />
+            <StoreMapPreview lat={store.latitude!} lng={store.longitude!} height={250} />
           </Box>
         </Collapse>
       )}
