@@ -6,7 +6,7 @@ import {
   Divider, Drawer, Group, Indicator, Menu, Stack, Text,
 } from "@mantine/core";
 import {
-  ArrowRight, ClipboardList, LogOut, ShoppingBag, UserRound,
+  ArrowRight, CalendarDays, ClipboardList, LogOut, ShoppingBag, UserRound,
 } from "lucide-react";
 import { useState } from "react";
 import headerStyles from "./PublicHeader.module.css";
@@ -134,6 +134,7 @@ export default function PublicHeader() {
                     <Menu.Divider />
                     <Menu.Item component={Link} to="/profile" leftSection={<UserRound size={17} />} styles={{ item: { color: "#f5f5f5" } }}>Mi perfil</Menu.Item>
                     <Menu.Item component={Link} to="/my-orders" leftSection={<ClipboardList size={17} />} styles={{ item: { color: "#f5f5f5" } }}>Mis pedidos</Menu.Item>
+                    <Menu.Item component={Link} to="/my-reservations" leftSection={<CalendarDays size={17} />} styles={{ item: { color: "#f5f5f5" } }}>Mis reservas</Menu.Item>
                     <Menu.Divider />
                     <Menu.Item
                       color="red"
@@ -240,6 +241,7 @@ export default function PublicHeader() {
               </Group>
               <Button component={Link} to="/profile" onClick={() => setMobileOpen(false)} variant="light" color="gray" fullWidth leftSection={<UserRound size={17} />}>Mi perfil</Button>
               <Button component={Link} to="/my-orders" onClick={() => setMobileOpen(false)} variant="light" color="gray" fullWidth leftSection={<ClipboardList size={17} />}>Mis pedidos</Button>
+              <Button component={Link} to="/my-reservations" onClick={() => setMobileOpen(false)} variant="light" color="gray" fullWidth leftSection={<CalendarDays size={17} />}>Mis reservas</Button>
               <Button variant="outline" color="red" fullWidth loading={loggingOut} leftSection={<LogOut size={17} />} onClick={() => void logout()}>Cerrar sesión</Button>
             </Stack>
           ) : (
