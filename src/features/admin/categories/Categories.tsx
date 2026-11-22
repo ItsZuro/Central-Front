@@ -1,9 +1,10 @@
 import { api } from "@/core/api/api";
+import { ActionIcon, Alert, Badge, Box, Button, Center, Group, Loader, Modal, Paper, SimpleGrid, Stack, Table, Text, TextInput, ThemeIcon, Title } from "@mantine/core";
 import axios from "axios";
-import { toast } from "react-toastify";
-import { FolderPlus, Pencil, Tags, Trash2, UtensilsCrossed, X } from "lucide-react";
+import { AlertCircle, ArrowRight, FolderPlus, Pencil, Tags, Trash2, UtensilsCrossed } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
 
 interface Category {
   id: number;
@@ -11,9 +12,7 @@ interface Category {
 }
 
 function errorMessage(error: unknown): string {
-  if (axios.isAxiosError<{ message?: string }>(error)) {
-    return error.response?.data?.message || "No fue posible completar la operación.";
-  }
+  if (axios.isAxiosError<{ message?: string }>(error)) return error.response?.data?.message || "No se pudo completar la operación.";
   return "Ocurrió un error inesperado.";
 }
 
@@ -22,16 +21,16 @@ export default function Categories() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [editor, setEditor] = useState<Category | null | "new">(null);
+  const [editor, setEditor] = useState<Category | "new" | null>(null);
   const [name, setName] = useState("");
+  const [deleting, setDeleting] = useState<Category | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.get("categories");
-      setCategories(Array.isArray(res.data?.data) ? res.data.data : []);
+      const response = await api.get("categories");
+      setCategories(Array.isArray(response.data?.data) ? response.data.data : []);
     } catch (err) {
       setError(errorMessage(err));
       toast.error(errorMessage(err));
@@ -40,137 +39,136 @@ export default function Categories() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   const open = (category?: Category) => {
-    setName(category?.name || "");
     setEditor(category || "new");
+    setName(category?.name || "");
     setError("");
-    setNotice("");
   };
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = name.trim();
-    if (!value) return setError("Escribe el nombre de la categoría.");
-    if (categories.some((category) => category.name.toLowerCase() === value.toLowerCase() && (editor === "new" || category.id !== editor?.id))) {
-      return setError("Ya existe una categoría con ese nombre.");
-    }
+    if (!value) return setError("Escribe un nombre para la categoría.");
+    if (categories.some((category) =>
+      category.name.toLowerCase() === value.toLowerCase() &&
+      (editor === "new" || category.id !== editor?.id)
+    )) return setError("Ya existe una categoría con ese nombre.");
+
     setBusy(true);
     setError("");
     try {
-      if (editor === "new") {
-        await api.post("categories", { name: value });
-        setNotice("Categoría creada correctamente.");
-      toast.success("Categoría creada correctamente.");
-      } else if (editor) {
-        await api.put("categories/" + editor.id, { name: value });
-        setNotice("Categoría actualizada correctamente.");
-      toast.success("Categoría actualizada correctamente.");
-      }
+      if (editor === "new") await api.post("categories", { name: value });
+      else if (editor) await api.put("categories/" + editor.id, { name: value });
+      toast.success(editor === "new" ? "Categoría creada." : "Categoría actualizada.");
       setEditor(null);
       await load();
     } catch (err) {
-      setError(errorMessage(err));
-      toast.error(errorMessage(err));
+      const message = errorMessage(err);
+      setError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
   };
 
-  const remove = async (category: Category) => {
-    if (!window.confirm("¿Eliminar la categoría '" + category.name + "'? Si tiene productos asociados, el servidor puede impedirlo.")) return;
+  const remove = async () => {
+    if (!deleting) return;
     setBusy(true);
     setError("");
-    setNotice("");
     try {
-      await api.delete("categories/" + category.id);
-      setNotice("Categoría eliminada.");
+      await api.delete("categories/" + deleting.id);
       toast.success("Categoría eliminada.");
+      setDeleting(null);
       await load();
     } catch (err) {
-      setError(errorMessage(err));
-      toast.error(errorMessage(err));
+      const message = errorMessage(err);
+      setError(message);
+      toast.error(message);
+      setDeleting(null);
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <section className="mx-auto max-w-6xl space-y-7">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-red-600">Catálogo · Configuración</div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Categorías</h1>
-          <p className="mt-2 text-sm text-slate-500">Organiza los platos y bebidas que verá el cliente en el menú.</p>
-        </div>
-        <button onClick={() => open()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700">
-          <FolderPlus size={18} /> Nueva categoría
-        </button>
-      </header>
+    <Stack gap="xl" maw={1200} mx="auto">
+      <Group justify="space-between" align="flex-end" wrap="wrap">
+        <Box>
+          <Text size="xs" fw={800} c="red.7" tt="uppercase" lts={2}>Catálogo / Configuración</Text>
+          <Title order={1} mt={6} fw={850}>Categorías</Title>
+          <Text c="dimmed" mt={6} size="sm">Organiza los platos y bebidas disponibles en Restaurant Central.</Text>
+        </Box>
+        <Button size="md" leftSection={<FolderPlus size={18}/>} onClick={() => open()}>Nueva categoría</Button>
+      </Group>
 
-      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-      {notice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{notice}</div>}
+      {error && <Alert color="red" icon={<AlertCircle size={18}/>} title="No se pudo completar la operación" withCloseButton onClose={() => setError("")}>{error}</Alert>}
 
-      <div className="grid gap-5 md:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 text-red-600"><Tags size={23} /></div>
-          <p className="mt-5 text-sm font-medium text-slate-500">Categorías registradas</p>
-          <p className="mt-1 text-4xl font-extrabold text-slate-900">{loading ? "…" : categories.length}</p>
-          <p className="mt-3 text-xs text-slate-500">Datos reales de PostgreSQL (RDS)</p>
-        </div>
-        <div className="rounded-2xl border border-red-100 bg-gradient-to-br from-red-600 to-red-800 p-6 text-white shadow-sm md:col-span-2">
-          <div className="flex items-center gap-2 text-sm font-semibold text-red-100"><UtensilsCrossed size={18} /> Configuración del menú</div>
-          <h2 className="mt-4 text-xl font-bold">Primero crea categorías; después añade tus platos.</h2>
-          <p className="mt-2 max-w-xl text-sm text-red-100">Por ejemplo: Platos principales, Entradas, Bebidas y Postres. Cada producto necesita una categoría para poder guardarse.</p>
-          <Link className="mt-5 inline-flex rounded-lg bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50" to="/admin/products">Ir a productos</Link>
-        </div>
-      </div>
+      <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
+        <Paper withBorder p="xl" shadow="xs">
+          <ThemeIcon size={48} radius="md" variant="light" color="red"><Tags size={23}/></ThemeIcon>
+          <Text c="dimmed" size="sm" mt="lg">Categorías registradas</Text>
+          <Title mt={4} order={2}>{loading ? "…" : categories.length}</Title>
+          <Text c="dimmed" size="xs" mt="sm">Datos obtenidos desde PostgreSQL</Text>
+        </Paper>
+        <Paper p="xl" bg="red.8" radius="lg" style={{ gridColumn: "span 2" }}>
+          <Group gap="xs"><UtensilsCrossed size={19} color="white"/><Text c="white" size="sm" fw={700}>Configuración del menú</Text></Group>
+          <Title mt="lg" order={3} c="white">Primero las categorías. Después los platos.</Title>
+          <Text c="white" mt="xs" size="sm">Por ejemplo: Platos principales, Entradas, Bebidas y Postres. Cada producto requiere una categoría.</Text>
+          <Button mt="lg" variant="white" color="red" component={Link} to="/admin/products" rightSection={<ArrowRight size={16}/>}>Ir a productos</Button>
+        </Paper>
+      </SimpleGrid>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-          <div>
-            <h2 className="font-bold text-slate-900">Listado de categorías</h2>
-            <p className="mt-1 text-xs text-slate-500">Añade, modifica o elimina categorías del restaurante.</p>
-          </div>
-        </div>
-        {loading ? <p className="p-10 text-center text-sm text-slate-500">Cargando categorías…</p> : categories.length === 0 ? (
-          <div className="flex flex-col items-center px-6 py-16 text-center">
-            <div className="rounded-2xl bg-red-50 p-5 text-red-600"><Tags size={32} /></div>
-            <h3 className="mt-5 text-lg font-bold text-slate-900">Aún no hay categorías</h3>
-            <p className="mt-2 max-w-md text-sm text-slate-500">Crea la primera para habilitar el registro de productos en el panel de administración.</p>
-            <button onClick={() => open()} className="mt-5 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700">Crear primera categoría</button>
-          </div>
+      <Paper withBorder shadow="xs">
+        <Group justify="space-between" px="lg" py="md" style={{ borderBottom: "1px solid var(--mantine-color-gray-2)" }}>
+          <Box><Title order={3} size="lg">Listado de categorías</Title><Text c="dimmed" size="xs" mt={3}>Crea, edita o elimina las categorías del restaurante.</Text></Box>
+          <Badge color="red" variant="light" radius="lg">{categories.length} en total</Badge>
+        </Group>
+        {loading ? (
+          <Center p={70}><Loader color="red"/></Center>
+        ) : categories.length === 0 ? (
+          <Stack align="center" gap="sm" py={65} px="md">
+            <ThemeIcon radius="lg" size={72} variant="light" color="red"><Tags size={31}/></ThemeIcon>
+            <Title order={3}>Aún no hay categorías</Title>
+            <Text ta="center" c="dimmed" size="sm" maw={400}>Crea la primera para habilitar el registro de productos.</Text>
+            <Button mt="sm" leftSection={<FolderPlus size={17}/>} onClick={() => open()}>Crear primera categoría</Button>
+          </Stack>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {categories.map((category) => (
-              <div key={category.id} className="flex items-center justify-between gap-4 px-6 py-4 transition hover:bg-slate-50">
-                <div className="flex min-w-0 items-center gap-4">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600"><Tags size={18} /></span>
-                  <div><p className="truncate font-semibold text-slate-900">{category.name}</p><p className="text-xs text-slate-400">ID #{category.id}</p></div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button aria-label={"Editar " + category.name} onClick={() => open(category)} className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:border-red-200 hover:text-red-600"><Pencil size={17} /></button>
-                  <button aria-label={"Eliminar " + category.name} disabled={busy} onClick={() => void remove(category)} className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:border-red-200 hover:text-red-600 disabled:opacity-50"><Trash2 size={17} /></button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <Table.ScrollContainer minWidth={520}>
+            <Table verticalSpacing="md" horizontalSpacing="lg" highlightOnHover>
+              <Table.Thead><Table.Tr><Table.Th>Categoría</Table.Th><Table.Th>Identificador</Table.Th><Table.Th style={{ textAlign: "right" }}>Acciones</Table.Th></Table.Tr></Table.Thead>
+              <Table.Tbody>{categories.map((category) =>
+                <Table.Tr key={category.id}>
+                  <Table.Td><Group gap="sm"><ThemeIcon variant="light" color="red" size="lg"><Tags size={17}/></ThemeIcon><Text fw={650}>{category.name}</Text></Group></Table.Td>
+                  <Table.Td><Text size="sm" c="dimmed">#{category.id}</Text></Table.Td>
+                  <Table.Td><Group gap="xs" justify="flex-end">
+                    <ActionIcon aria-label={`Editar ${category.name}`} color="gray" variant="subtle" size="lg" onClick={() => open(category)}><Pencil size={18}/></ActionIcon>
+                    <ActionIcon aria-label={`Eliminar ${category.name}`} color="red" variant="light" size="lg" onClick={() => setDeleting(category)}><Trash2 size={18}/></ActionIcon>
+                  </Group></Table.Td>
+                </Table.Tr>
+              )}</Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         )}
-      </div>
+      </Paper>
 
-      {editor !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setEditor(null); }}>
-          <form onSubmit={(event) => void save(event)} role="dialog" aria-modal="true" aria-label={editor === "new" ? "Nueva categoría" : "Editar categoría"} className="w-full max-w-lg space-y-5 rounded-2xl bg-white p-7 shadow-2xl">
-            <div className="flex items-center justify-between"><h2 className="text-xl font-bold text-slate-900">{editor === "new" ? "Nueva categoría" : "Editar categoría"}</h2><button type="button" aria-label="Cerrar" onClick={() => setEditor(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X size={20} /></button></div>
-            <div><label htmlFor="category-name" className="mb-2 block text-sm font-medium text-slate-700">Nombre de la categoría</label><input id="category-name" autoFocus value={name} onChange={(event) => setName(event.target.value)} maxLength={100} placeholder="Ej. Platos principales" className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100" required /></div>
-            {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
-            <div className="flex justify-end gap-3"><button type="button" disabled={busy} onClick={() => setEditor(null)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700">Cancelar</button><button disabled={busy} type="submit" className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">{busy ? "Guardando…" : "Guardar categoría"}</button></div>
-          </form>
-        </div>
-      )}
-    </section>
+      <Modal opened={editor !== null} onClose={() => { if (!busy) {setEditor(null); setError("");} }} title={editor === "new" ? "Nueva categoría" : "Editar categoría"} centered>
+        <form onSubmit={(event) => void save(event)}>
+          <Stack gap="md">
+            <TextInput data-autofocus label="Nombre de la categoría" placeholder="Ej. Platos principales" required maxLength={100} value={name} onChange={(event) => setName(event.currentTarget.value)}/>
+            {error && <Alert color="red">{error}</Alert>}
+            <Group justify="flex-end"><Button variant="default" disabled={busy} onClick={() => setEditor(null)}>Cancelar</Button><Button type="submit" loading={busy}>Guardar</Button></Group>
+          </Stack>
+        </form>
+      </Modal>
+
+      <Modal opened={deleting !== null} onClose={() => {if (!busy) setDeleting(null);}} title="Confirmar eliminación" centered>
+        <Stack>
+          <Text size="sm">¿Eliminar <strong>{deleting?.name}</strong>? Si tiene productos asociados, el servidor podría impedir la eliminación.</Text>
+          <Group justify="flex-end"><Button variant="default" disabled={busy} onClick={() => setDeleting(null)}>Cancelar</Button><Button color="red" loading={busy} onClick={() => void remove()} leftSection={<Trash2 size={16}/>}>Eliminar categoría</Button></Group>
+        </Stack>
+      </Modal>
+    </Stack>
   );
 }
