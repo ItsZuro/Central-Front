@@ -25,7 +25,7 @@ export function useLoginMutation() {
       // sin depender del orden no determinista del Set devuelto por el backend.
       const priority = [
         "ROLE_ADMIN", "ROLE_MANAGER", "ROLE_CHEF",
-        "ROLE_CASHIER", "ROLE_WAITER", "ROLE_SUPPLIER", "ROLE_CLIENT",
+        "ROLE_CASHIER", "ROLE_WAITER", "ROLE_DRIVER", "ROLE_SUPPLIER", "ROLE_CLIENT",
       ];
       const userRole = priority.find((role) => data.user.roles?.includes(role));
       const redirectPath = userRole ? roleDefaultRoutes[userRole] || "/" : "/";
