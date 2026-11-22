@@ -13,11 +13,11 @@ import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle, ArrowRight, BellRing, CalendarDays, CheckCircle2,
   ChefHat, ClipboardList, Clock3, Coffee, LayoutDashboard, LogOut, MapPin,
-  RefreshCw, Search, Sparkles, Truck, Users, UtensilsCrossed,
+  RefreshCw, Search, Sparkles, Users, UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import NewDineInOrder from "./NewDineInOrder";
 import styles from "./Waiter.module.css";
 
@@ -359,9 +359,7 @@ export default function WaiterApp() {
                   <Tabs.Tab value="reservations" leftSection={<CalendarDays size={17}/>}>Reservas</Tabs.Tab>
                 </Tabs.List>
               </Tabs>
-              <Button component={Link} to="/driver" variant="light" color="red" size="sm" leftSection={<Truck size={17}/>}>
-                Mis repartos
-              </Button>
+
             </Group>
           </ScrollArea>
           <Text size="xs" c="#aba6b1">Área exclusiva del personal</Text>
