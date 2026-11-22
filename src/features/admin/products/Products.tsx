@@ -1,619 +1,285 @@
 import { api } from "@/core/api/api";
-import { useAuthStore } from "@/core/stores/auth/auth.store";
-import { useEffect, useMemo, useState } from "react";
+import axios from "axios";
+import { toast } from "react-toastify";
+import { CheckCircle2, CircleOff, Clock3, ImageOff, Pencil, Plus, Search, Tags, Trash2, UtensilsCrossed, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 
-interface AdminProduct {
-  id: string;
+interface Product {
+  id: number;
   name: string;
+  description: string;
   price: number;
   imageUrl?: string;
   categoryId: number;
   categoryName?: string;
+  preparationTimeMinutes: number;
+  active: boolean;
+  isCombo?: boolean;
+  ingredients?: Array<{ ingredientId: number; quantity: number }>;
+  extras?: Array<{ name: string; price: number }>;
+  comboItems?: Array<{ simpleProductId: number; quantity: number }>;
 }
 
-interface CategoryOpt {
+interface Category {
   id: number;
   name: string;
 }
-interface IngredientOpt {
-  id: number;
-  name: string;
-  unitId?: number;
-}
-interface ProductIngredientForm {
-  ingredientId: number;
-  quantity: number;
-}
 
-interface CategoryApiItem {
-  id?: number;
-  categoryId?: number;
-  name?: string;
-  categoryName?: string;
-}
+type ProductForm = Omit<Product, "id" | "categoryName">;
 
-interface IngredientApiItem {
-  id?: number;
-  ingredientId?: number;
-  name?: string;
-  unitId?: number;
-}
+const blankProduct = (): ProductForm => ({
+  name: "",
+  description: "",
+  price: 0,
+  imageUrl: "",
+  categoryId: 0,
+  preparationTimeMinutes: 15,
+  active: true,
+  isCombo: false,
+});
 
-interface ProductIngredientApiItem {
-  ingredientId?: number;
-  id?: number;
-  quantity?: number;
+const priceLabel = (value: number) => "S/ " + Number(value || 0).toFixed(2);
+
+function errorText(error: unknown) {
+  if (axios.isAxiosError<{ message?: string; errors?: Record<string, string> }>(error)) {
+    const message = error.response?.data?.message;
+    const details = error.response?.data?.errors;
+    if (details && typeof details === "object") return Object.values(details).join(" · ");
+    return message || "No se pudo completar la operación. Revisa los campos y permisos.";
+  }
+  return "Ocurrió un error inesperado.";
 }
 
-// CRUD básico de productos según backend (name, price, imageUrl, categoryId)
-
-function formatPrice(n: number) {
-  return `S/ ${n.toFixed(2)}`;
-}
-
-function Products() {
-  const [products, setProducts] = useState<AdminProduct[]>([]);
-
+export default function Products() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
-  const [editing, setEditing] = useState<AdminProduct | null>(null);
-  const [form, setForm] = useState<
-    (AdminProduct & { ingredients?: ProductIngredientForm[] }) | null
-  >(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [categories, setCategories] = useState<CategoryOpt[]>([]);
-  const [ingredientOpts, setIngredientOpts] = useState<IngredientOpt[]>([]);
+  const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
+  const [editingId, setEditingId] = useState<number | "new" | null>(null);
+  const [form, setForm] = useState<ProductForm>(blankProduct());
 
-  // Cargar productos reales desde el backend (solo lectura)
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const res = await api.get("products");
-        // Estructura esperada: { success, message, data: ProductResponse[] }
-        const list = (res.data?.data || []) as Array<{
-          id: number;
-          name: string;
-          price: number;
-          imageUrl?: string;
-          categoryId?: number;
-          categoryName?: string;
-        }>;
-        const mapped: AdminProduct[] = list.map((p) => ({
-          id: String(p.id),
-          name: p.name,
-          price: Number(p.price || 0),
-          imageUrl: p.imageUrl || "",
-          categoryId: Number(p.categoryId || 0),
-          categoryName: p.categoryName,
-        }));
-        if (mounted && mapped.length) setProducts(mapped);
-      } catch {
-        // Silencioso: mantener datos simulados si falla
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [productRes, categoryRes] = await Promise.all([
+        api.get("products/all"),
+        api.get("categories"),
+      ]);
+      setProducts(Array.isArray(productRes.data?.data) ? productRes.data.data : []);
+      setCategories(Array.isArray(categoryRes.data?.data) ? categoryRes.data.data : []);
+    } catch (err) {
+      setError(errorText(err));
+      toast.error(errorText(err));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Cargar categorías e ingredientes (públicos)
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const [catRes, ingRes] = await Promise.allSettled([
-          api.get("categories"),
-          api.get("ingredients"),
-        ]);
-        if (mounted && catRes.status === "fulfilled") {
-          const cats = (catRes.value.data?.data || []) as CategoryApiItem[];
-          setCategories(
-            cats.map((c) => ({
-              id: Number(c.id ?? c.categoryId),
-              name: String(c.name ?? c.categoryName ?? ""),
-            }))
-          );
-        }
-        if (mounted && ingRes.status === "fulfilled") {
-          const ings = (ingRes.value.data?.data || []) as IngredientApiItem[];
-          setIngredientOpts(
-            ings.map((i) => ({
-              id: Number(i.id ?? i.ingredientId),
-              name: String(i.name ?? ""),
-              unitId: Number(i.unitId ?? 0),
-            }))
-          );
-        }
-      } catch {
-        // Silencioso: estas opciones auxiliares no impiden mostrar la página.
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  useEffect(() => { void load(); }, [load]);
 
-  const categoriesMap = useMemo(() => {
-    const m = new Map<number, string>();
-    for (const c of categories) m.set(c.id, c.name);
-    return m;
-  }, [categories]);
+  const filtered = useMemo(() => products.filter((product) => {
+    if (status === "active" && !product.active) return false;
+    if (status === "inactive" && product.active) return false;
+    const categoryName = product.categoryName || categories.find((c) => c.id === product.categoryId)?.name || "";
+    return (product.name + " " + product.description + " " + categoryName).toLowerCase().includes(query.trim().toLowerCase());
+  }), [products, categories, status, query]);
 
-  const filtered = useMemo(() => {
-    return products.filter((p) => {
-      const catLabel =
-        p.categoryName ||
-        categoriesMap.get(p.categoryId) ||
-        String(p.categoryId);
-      const byQ = [p.name, catLabel].some((t) =>
-        String(t).toLowerCase().includes(query.toLowerCase())
-      );
-      return byQ;
-    });
-  }, [products, query, categoriesMap]);
-
-  function openCreate() {
-    setEditing(null);
+  const openNew = () => {
+    setError("");
+    setEditingId("new");
+    setForm({ ...blankProduct(), categoryId: categories[0]?.id ?? 0 });
+  };
+  const openEdit = (product: Product) => {
+    if (product.isCombo) {
+      setError("La edición de combos necesita una pantalla específica. Puedes ocultarlo o eliminarlo, pero no convertirlo accidentalmente en un plato simple.");
+      return;
+    }
+    setError("");
+    setEditingId(product.id);
     setForm({
-      id: crypto.randomUUID(),
-      name: "",
-      price: 0,
-      imageUrl: "",
-      categoryId: 0,
-      ingredients: [],
+      name: product.name,
+      description: product.description || "",
+      price: Number(product.price),
+      imageUrl: product.imageUrl || "",
+      categoryId: product.categoryId,
+      preparationTimeMinutes: product.preparationTimeMinutes || 15,
+      active: product.active,
+      isCombo: Boolean(product.isCombo),
     });
-  }
+  };
 
-  function openEdit(p: AdminProduct) {
-    setEditing(p);
-    setForm({ ...p, ingredients: [] });
-    setErrors({});
-    // Obtener detalles para cargar ingredientes
-    (async () => {
-      try {
-        const res = await api.get(`products/${p.id}`);
-        const detail = res.data?.data as
-          | {
-              ingredients?: ProductIngredientApiItem[];
-            }
-          | undefined;
-        const ingredients = detail?.ingredients;
-        if (ingredients) {
-          setForm((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  ingredients: ingredients.map((it) => ({
-                    ingredientId: Number(it.ingredientId ?? it.id),
-                    quantity: Number(it.quantity ?? 0),
-                  })),
-                }
-              : prev
-          );
-        }
-      } catch {
-        // Silencioso: se mantiene el formulario sin ingredientes si falla.
-      }
-    })();
-  }
-
-  function cancelForm() {
-    setForm(null);
-    setEditing(null);
-    setErrors({});
-  }
-
-  function validate(current: AdminProduct) {
-    const e: Record<string, string> = {};
-    if (!current.name?.trim()) e.name = "El nombre es obligatorio";
-    if (isNaN(Number(current.price)) || Number(current.price) < 0)
-      e.price = "Precio inválido";
-    if (!current.categoryId || Number(current.categoryId) <= 0)
-      e.categoryId = "Categoría obligatoria";
-    if (
-      current.imageUrl &&
-      !/^https?:\/\//i.test(current.imageUrl)
-    )
-      e.imageUrl = "URL de imagen inválida";
-    return e;
-  }
-
-  async function saveForm() {
-    if (!form) return;
-    const v = validate(form);
-    setErrors(v);
-    if (Object.keys(v).length) return;
-    const token = useAuthStore.getState().accessToken;
-    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-    // Filtrar ingredientes inválidos (ids o cantidades vacías/no válidas)
-    const cleanedIngredients = (form.ingredients || [])
-      .filter((i) => Number(i.ingredientId) > 0 && Number(i.quantity) > 0)
-      .map((i) => ({
-        ingredientId: Number(i.ingredientId),
-        quantity: Number(i.quantity),
-      }));
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!form.name.trim() || !form.description.trim()) return setError("Nombre y descripción son obligatorios.");
+    if (!categories.some((category) => category.id === Number(form.categoryId))) return setError("Selecciona una categoría válida.");
+    if (!Number.isFinite(Number(form.price)) || Number(form.price) < 0) return setError("El precio debe ser cero o mayor.");
+    if (!Number.isInteger(Number(form.preparationTimeMinutes)) || Number(form.preparationTimeMinutes) < 1) return setError("El tiempo de preparación debe ser al menos un minuto.");
+    if (form.imageUrl && !/^https?:\/\//i.test(form.imageUrl)) return setError("Introduce una URL de imagen válida.");
+    setSaving(true);
+    setError("");
     try {
-      if (editing) {
-        const payload = {
-          name: form.name,
-          price: Number(form.price),
-          imageUrl: form.imageUrl || "",
-          categoryId: Number(form.categoryId),
-          ingredients: cleanedIngredients,
-        };
-        await api.put(
-          `products/${form.id}`,
-          payload,
-          headers ? { headers } : undefined
-        );
-      } else {
-        const payload = {
-          name: form.name,
-          price: Number(form.price),
-          imageUrl: form.imageUrl || "",
-          categoryId: Number(form.categoryId),
-          ingredients: cleanedIngredients,
-        };
-        const res = await api.post(
-          `products`,
-          payload,
-          headers ? { headers } : undefined
-        );
-        const created = res.data?.data;
-        if (created?.id) {
-          setProducts((prev) => [
-            {
-              id: String(created.id),
-              name: created.name,
-              price: Number(created.price || 0),
-              imageUrl: created.imageUrl || "",
-              categoryId: Number(created.categoryId || 0),
-            },
-            ...prev,
-          ]);
-        }
+      const payload = {
+        name: form.name.trim(),
+        description: form.description.trim(),
+        price: Number(form.price),
+        imageUrl: form.imageUrl?.trim() || null,
+        categoryId: Number(form.categoryId),
+        preparationTimeMinutes: Number(form.preparationTimeMinutes),
+        active: Boolean(form.active),
+        isCombo: false,
+        // El backend conserva ingredientes y extras cuando se omiten en ediciones básicas.
+        ingredients: editingId === "new" ? [] : undefined,
+        comboItems: editingId === "new" ? [] : undefined,
+        extras: editingId === "new" ? [] : undefined,
+      };
+      if (editingId === "new") {
+        await api.post("products", payload);
+        setNotice("Plato registrado correctamente.");
+      toast.success("Plato registrado correctamente.");
+      } else if (typeof editingId === "number") {
+        await api.put("products/" + editingId, payload);
+        setNotice("Producto actualizado correctamente.");
+      toast.success("Producto actualizado correctamente.");
       }
-      // Refrescar lista
-      const ref = await api.get("products");
-      const list = (ref.data?.data || []) as Array<{
-        id: number;
-        name: string;
-        price: number;
-        imageUrl?: string;
-        categoryId?: number;
-      }>;
-      setProducts(
-        list.map((p) => ({
-          id: String(p.id),
-          name: p.name,
-          price: Number(p.price || 0),
-          imageUrl: p.imageUrl || "",
-          categoryId: Number(p.categoryId || 0),
-        }))
-      );
-      cancelForm();
-    } catch {
-      // ignore
+      setEditingId(null);
+      await load();
+    } catch (err) {
+      setError(errorText(err));
+      toast.error(errorText(err));
+    } finally {
+      setSaving(false);
     }
-  }
+  };
 
-  async function remove(id: string) {
-    const token = useAuthStore.getState().accessToken;
-    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const toggleActive = async (product: Product) => {
+    setError("");
+    setNotice("");
     try {
-      await api.delete(
-        `products/${id}`,
-        headers ? { headers } : undefined
-      );
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-    } catch {
-      // Silencioso: la lista se conserva si el backend rechaza la eliminación.
+      await api.patch("products/" + product.id + "/toggle-active");
+      setNotice(product.active ? "Producto ocultado del menú público." : "Producto publicado en el menú.");
+      toast.success(product.active ? "Producto ocultado del menú público." : "Producto publicado en el menú.");
+      await load();
+    } catch (err) {
+      setError(errorText(err));
+      toast.error(errorText(err));
     }
-  }
+  };
 
-  // No aplica en backend actual
+  const remove = async (product: Product) => {
+    if (!window.confirm("¿Eliminar '" + product.name + "'? Esta acción puede ser irreversible y fallará si tiene pedidos asociados.")) return;
+    setError("");
+    setNotice("");
+    try {
+      await api.delete("products/" + product.id);
+      setNotice("Producto eliminado.");
+      toast.success("Producto eliminado.");
+      await load();
+    } catch (err) {
+      setError(errorText(err));
+      toast.error(errorText(err));
+    }
+  };
 
-  function effectivePrice(p: AdminProduct) {
-    return {
-      base: formatPrice(Number(p.price || 0)),
-      final: formatPrice(Number(p.price || 0)),
-    };
-  }
-
+  const activeCount = products.filter((p) => p.active).length;
   return (
-    <section className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <h1 className="text-2xl md:text-3xl font-bold text-red-700">Menú</h1>
-        <div className="flex gap-2">
-          <input
-            placeholder="Buscar..."
-            className="border border-gray-300 rounded-md px-3 py-2 w-48"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <button
-            className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
-            onClick={openCreate}
-          >
-            Nuevo plato
-          </button>
+    <section className="mx-auto max-w-7xl space-y-7">
+      <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-red-600">Catálogo · Restaurant Central</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Gestión del menú</h1>
+          <p className="mt-2 text-sm text-slate-500">Administra los platos que aparecen en la web de tu restaurante.</p>
         </div>
-      </div>
+        <div className="flex flex-wrap gap-2">
+          <Link to="/admin/categories" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:border-red-200 hover:text-red-700"><Tags size={17} /> Categorías</Link>
+          <button onClick={openNew} disabled={categories.length === 0} title={categories.length === 0 ? "Crea primero una categoría" : "Añadir producto"} className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"><Plus size={18} /> Nuevo plato</button>
+        </div>
+      </header>
 
-      {/* Sección de más vendidos removida por no aplicar al modelo actual */}
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {notice && <div role="status" className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{notice}</div>}
 
-      {/* Listado */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full border border-gray-200 bg-white rounded-md overflow-hidden">
-          <thead className="bg-gray-50">
-            <tr className="text-left text-sm text-gray-600">
-              <th className="p-3">Menú</th>
-              <th className="p-3">Precio</th>
-              <th className="p-3">Imagen</th>
-              <th className="p-3">Categoría</th>
-              <th className="p-3">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && (
-              <tr>
-                <td
-                  colSpan={7}
-                  className="p-6 text-center text-sm text-gray-500"
-                >
-                  Sin datos
-                </td>
-              </tr>
-            )}
-            {filtered.map((p) => {
-              const price = effectivePrice(p);
-              return (
-                <tr
-                  key={p.id}
-                  className="border-t border-gray-100 text-sm"
-                >
-                  <td className="p-3">
-                    <div className="flex items-center gap-3">
-                      {p.imageUrl ? (
-                        <img
-                          src={p.imageUrl}
-                          alt={p.name}
-                          className="w-12 h-12 object-cover rounded-md"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-gray-100 rounded" />
-                      )}
-                      <div>
-                        <div className="font-semibold text-red-700">
-                          {p.name}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-3">{price.base}</td>
-                  <td className="p-3">{p.imageUrl ? "Sí" : "—"}</td>
-                  <td className="p-3">
-                    {p.categoryName ||
-                      categoriesMap.get(p.categoryId) ||
-                      p.categoryId}
-                  </td>
-                  <td className="p-3 space-x-2">
-                    <button
-                      className="text-red-700 hover:underline"
-                      onClick={() => openEdit(p)}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      className="text-amber-700 hover:underline"
-                      onClick={() => remove(p.id)}
-                    >
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Formulario de creación/edición */}
-      {form && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
-          <div className="bg-white w-full max-w-2xl rounded-xl p-6 shadow-xl space-y-4">
-            <h2 className="text-xl font-semibold text-red-700">
-              {editing ? "Editar producto" : "Nuevo producto"}
-            </h2>
-            {!useAuthStore.getState().accessToken && (
-              <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-                Requiere token ADMIN para guardar (POST/PUT/DELETE). Solo
-                lectura sin token.
-              </div>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-600">Nombre</label>
-                <input
-                  className={`w-full border rounded-md px-3 py-2 ${
-                    errors.name ? "border-red-500" : ""
-                  }`}
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                />
-                {errors.name && (
-                  <p className="text-xs text-red-600 mt-1">{errors.name}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600">Categoría</label>
-                <select
-                  className={`w-full border rounded-md px-3 py-2 ${
-                    errors.categoryId ? "border-red-500" : ""
-                  }`}
-                  value={form.categoryId}
-                  onChange={(e) =>
-                    setForm({ ...form, categoryId: Number(e.target.value) })
-                  }
-                >
-                  <option value={0}>Selecciona categoría</option>
-                  {categories.map((c) => (
-                    <option
-                      key={c.id}
-                      value={c.id}
-                    >
-                      {c.name} ({c.id})
-                    </option>
-                  ))}
-                </select>
-                {errors.categoryId && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {errors.categoryId}
-                  </p>
-                )}
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm text-gray-600">Precio</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className={`w-full border rounded-md px-3 py-2 ${
-                    errors.price ? "border-red-500" : ""
-                  }`}
-                  value={form.price}
-                  onChange={(e) =>
-                    setForm({ ...form, price: Number(e.target.value) })
-                  }
-                />
-                {errors.price && (
-                  <p className="text-xs text-red-600 mt-1">{errors.price}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600">
-                  Imagen (URL)
-                </label>
-                <input
-                  className={`w-full border rounded-md px-3 py-2 ${
-                    errors.imageUrl ? "border-red-500" : ""
-                  }`}
-                  value={form.imageUrl || ""}
-                  onChange={(e) =>
-                    setForm({ ...form, imageUrl: e.target.value })
-                  }
-                />
-                {errors.imageUrl && (
-                  <p className="text-xs text-red-600 mt-1">{errors.imageUrl}</p>
-                )}
-              </div>
-              <div className="md:col-span-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-sm text-gray-600">
-                    Ingredientes
-                  </label>
-                  <button
-                    type="button"
-                    className="text-sm text-red-700"
-                    onClick={() =>
-                      setForm({
-                        ...form,
-                        ingredients: [
-                          ...(form.ingredients || []),
-                          { ingredientId: 0, quantity: 0 },
-                        ],
-                      })
-                    }
-                  >
-                    Agregar ingrediente
-                  </button>
-                </div>
-                <div className="mt-2 space-y-2">
-                  {(form.ingredients || []).length === 0 && (
-                    <div className="text-sm text-gray-500">
-                      Sin ingredientes
-                    </div>
-                  )}
-                  {(form.ingredients || []).map((ing, idx) => (
-                    <div
-                      key={idx}
-                      className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center"
-                    >
-                      <select
-                        className="border rounded-md px-3 py-2"
-                        value={ing.ingredientId}
-                        onChange={(e) => {
-                          const v = Number(e.target.value);
-                          const arr = [...(form.ingredients || [])];
-                          arr[idx] = { ...arr[idx], ingredientId: v };
-                          setForm({ ...form, ingredients: arr });
-                        }}
-                      >
-                        <option value={0}>Selecciona ingrediente</option>
-                        {ingredientOpts.map((o) => (
-                          <option
-                            key={o.id}
-                            value={o.id}
-                          >
-                            {o.name} ({o.id})
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        step="0.01"
-                        className="border rounded-md px-3 py-2"
-                        value={ing.quantity}
-                        onChange={(e) => {
-                          const v = Number(e.target.value);
-                          const arr = [...(form.ingredients || [])];
-                          arr[idx] = { ...arr[idx], quantity: v };
-                          setForm({ ...form, ingredients: arr });
-                        }}
-                      />
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          className="text-sm text-gray-600"
-                          onClick={() => {
-                            const arr = [...(form.ingredients || [])];
-                            arr.splice(idx, 1);
-                            setForm({ ...form, ingredients: arr });
-                          }}
-                        >
-                          Quitar
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                className="px-4 py-2 rounded-md border border-gray-300"
-                onClick={cancelForm}
-              >
-                Cancelar
-              </button>
-              <button
-                className="px-4 py-2 rounded-md bg-red-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={saveForm}
-                disabled={
-                  !!Object.keys(errors).length ||
-                  !form.name?.trim() ||
-                  Number.isNaN(Number(form.price)) ||
-                  Number(form.price) < 0 ||
-                  !form.categoryId
-                }
-              >
-                Guardar
-              </button>
-            </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[
+          { label: "Productos registrados", value: products.length, icon: UtensilsCrossed },
+          { label: "Productos visibles", value: activeCount, icon: CheckCircle2 },
+          { label: "Categorías", value: categories.length, icon: Tags },
+        ].map((item) => (
+          <div key={item.label} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-xl bg-red-50 p-3 text-red-600"><item.icon size={22} /></div>
+            <div><p className="text-xs font-medium text-slate-500">{item.label}</p><p className="mt-1 text-2xl font-extrabold text-slate-900">{loading ? "…" : item.value}</p></div>
           </div>
+        ))}
+      </div>
+
+      {categories.length === 0 && !loading && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="font-bold text-amber-900">Primero necesitamos categorías</p><p className="mt-1 text-sm text-amber-800">Sin categorías, Spring Boot no permite registrar productos.</p></div>
+          <Link to="/admin/categories" className="shrink-0 rounded-xl bg-amber-900 px-4 py-2.5 text-center text-sm font-semibold text-white">Crear categoría</Link>
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div><h2 className="text-base font-bold text-slate-900">Todos los platos</h2><p className="mt-1 text-xs text-slate-500">{filtered.length} resultado(s)</p></div>
+          <div className="flex flex-wrap gap-2">
+            <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 text-slate-500"><Search size={16} /><input aria-label="Buscar productos" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar plato…" className="w-40 bg-transparent py-2.5 text-sm text-slate-900 outline-none sm:w-52" /></label>
+            <select aria-label="Filtrar por estado" value={status} onChange={(e) => setStatus(e.target.value as "all" | "active" | "inactive")} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600"><option value="all">Todos</option><option value="active">Activos</option><option value="inactive">Inactivos</option></select>
+          </div>
+        </div>
+
+        {loading ? <div className="p-12 text-center text-sm text-slate-500">Cargando productos…</div> : filtered.length === 0 ? (
+          <div className="flex flex-col items-center px-6 py-16 text-center">
+            <div className="rounded-2xl bg-red-50 p-5 text-red-600"><UtensilsCrossed size={30} /></div>
+            <h3 className="mt-4 text-lg font-bold text-slate-900">{products.length ? "No se encontraron platos" : "Todavía no tienes productos"}</h3>
+            <p className="mt-2 max-w-md text-sm text-slate-500">{products.length ? "Prueba con otra búsqueda o filtro." : "Crea tus categorías y registra los platos para que aparezcan automáticamente en la web."}</p>
+            {!products.length && categories.length > 0 && <button onClick={openNew} className="mt-5 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white">Agregar primer plato</button>}
+          </div>
+        ) : (
+          <div className="overflow-x-auto"><table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-6 py-4 font-semibold">Producto</th><th className="px-6 py-4 font-semibold">Categoría</th><th className="px-6 py-4 font-semibold">Precio</th><th className="px-6 py-4 font-semibold">Preparación</th><th className="px-6 py-4 font-semibold">Estado</th><th className="px-6 py-4 text-right font-semibold">Acciones</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">
+              {filtered.map((product) => (
+                <tr key={product.id} className="hover:bg-slate-50/70">
+                  <td className="min-w-60 px-6 py-4"><div className="flex items-center gap-3">{product.imageUrl ? <img src={product.imageUrl} alt="" className="h-12 w-12 rounded-xl object-cover" /> : <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400"><ImageOff size={19} /></span>}<div><div className="font-semibold text-slate-900">{product.name}</div><div className="mt-1 max-w-xs truncate text-xs text-slate-500">{product.description}</div></div></div></td>
+                  <td className="px-6 py-4 text-slate-600">{product.categoryName || categories.find((c) => c.id === product.categoryId)?.name || "—"}</td>
+                  <td className="whitespace-nowrap px-6 py-4 font-semibold text-slate-900">{priceLabel(product.price)}</td>
+                  <td className="whitespace-nowrap px-6 py-4 text-slate-500"><span className="inline-flex items-center gap-1"><Clock3 size={14} /> {product.preparationTimeMinutes} min</span></td>
+                  <td className="px-6 py-4"><span className={product.active ? "rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700" : "rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600"}>{product.active ? "Publicado" : "Oculto"}</span></td>
+                  <td className="whitespace-nowrap px-6 py-4 text-right"><div className="inline-flex items-center gap-1">
+                    <button title="Editar" aria-label={"Editar " + product.name} onClick={() => openEdit(product)} className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600"><Pencil size={17} /></button>
+                    <button title={product.active ? "Ocultar" : "Publicar"} aria-label={(product.active ? "Ocultar " : "Publicar ") + product.name} onClick={() => void toggleActive(product)} className="rounded-lg p-2 text-slate-500 hover:bg-amber-50 hover:text-amber-700">{product.active ? <CircleOff size={17} /> : <CheckCircle2 size={17} />}</button>
+                    <button title="Eliminar" aria-label={"Eliminar " + product.name} onClick={() => void remove(product)} className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600"><Trash2 size={17} /></button>
+                  </div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table></div>
+        )}
+      </div>
+
+      {editingId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-3 sm:p-6" onMouseDown={(event) => { if (event.currentTarget === event.target && !saving) setEditingId(null); }} role="presentation">
+          <form onSubmit={(event) => void save(event)} role="dialog" aria-modal="true" aria-label={editingId === "new" ? "Crear producto" : "Editar producto"} className="my-auto w-full max-w-2xl space-y-5 rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
+            <div className="flex items-start justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-red-600">Catálogo</p><h2 className="mt-2 text-2xl font-bold text-slate-900">{editingId === "new" ? "Nuevo plato" : "Editar plato"}</h2></div><button type="button" aria-label="Cerrar" onClick={() => setEditingId(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X size={20} /></button></div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm font-semibold text-slate-700">Nombre del plato *<input required maxLength={150} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej. Lomo saltado" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-red-500" /></label>
+              <label className="block text-sm font-semibold text-slate-700">Categoría *<select required value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: Number(e.target.value) })} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-normal outline-none focus:border-red-500"><option value={0}>Selecciona una categoría</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+              <label className="block text-sm font-semibold text-slate-700">Precio (S/) *<input required type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-red-500" /></label>
+              <label className="block text-sm font-semibold text-slate-700">Tiempo de preparación (min) *<input required type="number" min="1" step="1" value={form.preparationTimeMinutes} onChange={(e) => setForm({ ...form, preparationTimeMinutes: Number(e.target.value) })} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-red-500" /></label>
+              <label className="block text-sm font-semibold text-slate-700 sm:col-span-2">Descripción *<textarea required rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Ingredientes principales, acompañamientos…" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-red-500" /></label>
+              <label className="block text-sm font-semibold text-slate-700 sm:col-span-2">URL de imagen (opcional)<input type="url" value={form.imageUrl || ""} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://…" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-red-500" /></label>
+              <label className="flex items-center gap-3 rounded-xl bg-slate-50 p-4 text-sm font-medium text-slate-700 sm:col-span-2"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="accent-red-600" /> Publicar inmediatamente en el menú</label>
+            </div>
+            {error && <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+            <div className="flex justify-end gap-3 border-t border-slate-100 pt-5"><button type="button" disabled={saving} onClick={() => setEditingId(null)} className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">Cancelar</button><button type="submit" disabled={saving} className="rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">{saving ? "Guardando…" : editingId === "new" ? "Crear producto" : "Guardar cambios"}</button></div>
+          </form>
         </div>
       )}
     </section>
   );
 }
-
-export default Products;
