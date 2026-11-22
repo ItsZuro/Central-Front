@@ -106,7 +106,7 @@ export interface KitchenOrderResponse {
 export interface OrderResponse {
   id: number;
 
-  customerId: number;
+  customerId: number | null;
   customerName: string;
   employeeId?: number;
   employeeName?: string;
