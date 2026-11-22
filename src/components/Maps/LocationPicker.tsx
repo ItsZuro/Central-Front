@@ -8,9 +8,11 @@ const containerStyle = {
   borderRadius: "12px",
 };
 
+// Referencia para el entorno académico en Barranco (Lima).
+// Verifica la posición exacta antes de guardar una sucursal.
 const defaultCenter = {
-  lat: -14.0639,
-  lng: -75.729,
+  lat: -12.1526483,
+  lng: -77.0224579,
 };
 
 const darkMapStyles = [
@@ -105,7 +107,7 @@ export default function LocationPicker({
   onLocationSelect,
   initialLat,
   initialLng,
-  preferGeolocation = true,
+  preferGeolocation = false,
 }: LocationPickerProps) {
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
@@ -129,7 +131,7 @@ export default function LocationPicker({
           });
         },
         () => {
-          console.log("No se pudo obtener la ubicación, usando default (Ica)");
+          console.log("No se pudo obtener la ubicación; usando el mapa inicial de Lima.");
         }
       );
     }
