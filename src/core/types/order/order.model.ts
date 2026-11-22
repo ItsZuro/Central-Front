@@ -74,6 +74,14 @@ export interface AssignDriverRequest {
   employeeId: number;
 }
 
+/** Lista de ofertas sin datos privados hasta aceptar la asignación. */
+export interface AvailableDeliveryResponse {
+  orderId: number;
+  createdAt: string;
+  deliveryArea: string;
+  itemCount: number;
+}
+
 export interface DriverOptionResponse {
   employeeId: number;
   fullName: string;
