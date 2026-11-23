@@ -28,7 +28,7 @@ export function useOrderEvents(onOrdersChanged: () => void): void {
     if (!token) return;
     let disposed = false;
     let socket: WebSocket | null = null;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryTimer: number | null = null;
     let retryMs = 2000;
     let buffer = "";
     const endpoint = getWebSocketUrl(BASE_URL);
