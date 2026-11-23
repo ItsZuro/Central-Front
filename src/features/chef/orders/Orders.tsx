@@ -1,5 +1,6 @@
 import { logoutFromServer } from "@/core/services/auth/logout";
 import { orderService } from "@/core/services/order/order.service";
+import { useOrderEvents } from "@/core/hooks/order/useOrderEvents";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import type { KitchenOrderResponse } from "@/core/types/order/order.model";
 import {
@@ -243,6 +244,9 @@ export default function Orders() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  useOrderEvents(() => {
+    void queryClient.invalidateQueries({ queryKey: ["kitchen", "board"] });
+  });
   const [scope, setScope] = useState<OrderScope>("ALL");
   const [search, setSearch] = useState("");
   const [now, setNow] = useState(() => Date.now());

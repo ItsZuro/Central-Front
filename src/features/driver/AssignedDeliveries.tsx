@@ -1,5 +1,6 @@
 import { logoutFromServer } from "@/core/services/auth/logout";
 import { orderService } from "@/core/services/order/order.service";
+import { useOrderEvents } from "@/core/hooks/order/useOrderEvents";
 import { useAuthStore } from "@/core/stores/auth/auth.store";
 import type { AvailableDeliveryResponse, OrderResponse } from "@/core/types/order/order.model";
 import {
@@ -252,6 +253,9 @@ function DeliveryCard({
 }
 export default function AssignedDeliveries() {
   const queryClient = useQueryClient();
+  useOrderEvents(() => {
+    void queryClient.invalidateQueries({ queryKey: ["driver", "deliveries"] });
+  });
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [filter, setFilter] = useState<Filter>("available");

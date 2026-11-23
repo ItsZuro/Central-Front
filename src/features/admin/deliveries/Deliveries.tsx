@@ -1,4 +1,5 @@
 import { orderService } from "@/core/services/order/order.service";
+import { useOrderEvents } from "@/core/hooks/order/useOrderEvents";
 import type { DriverOptionResponse, OrderResponse } from "@/core/types/order/order.model";
 import {
   Alert, Badge, Box, Button, Center, Divider, Group, Loader, Modal, Paper,
@@ -66,6 +67,9 @@ function Metric({label, value, hint, tone}: {
 }
 export default function Deliveries() {
   const queryClient = useQueryClient();
+  useOrderEvents(() => {
+    void queryClient.invalidateQueries({ queryKey: ["management", "deliveries", "orders"] });
+  });
   const [filter, setFilter] = useState<Filter>("unassigned");
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebouncedValue(search.trim().toLowerCase(), 250);
